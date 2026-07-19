@@ -1,0 +1,87 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+html {
+  scroll-behavior: smooth;
+}
+
+body {
+  @apply font-body bg-leaf-50 text-leaf-900 dark:bg-leaf-950 dark:text-leaf-50 transition-colors duration-300;
+  background-image:
+    radial-gradient(circle at 15% 10%, rgba(52, 211, 153, 0.12), transparent 40%),
+    radial-gradient(circle at 85% 30%, rgba(2, 132, 199, 0.10), transparent 40%);
+  background-attachment: fixed;
+}
+
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  @apply bg-leaf-300 dark:bg-leaf-800 rounded-full;
+}
+
+*:focus-visible {
+  outline: 2px solid #16A34A;
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+
+@layer components {
+  .glass {
+    @apply bg-white/60 dark:bg-leaf-900/50 backdrop-blur-xl border border-white/40 dark:border-white/10 shadow-glass dark:shadow-glass-dark;
+  }
+
+  .glass-card {
+    @apply glass rounded-2xl transition-all duration-300 hover:shadow-glow hover:-translate-y-1;
+  }
+
+  .btn-primary {
+    @apply inline-flex items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-leaf-500 to-sky-500 px-5 py-2.5 font-display font-medium text-white shadow-lg shadow-leaf-500/20 transition-all duration-300 hover:scale-[1.03] hover:shadow-glow active:scale-95;
+  }
+
+  .btn-secondary {
+    @apply inline-flex items-center justify-center gap-2 rounded-xl border border-leaf-300 dark:border-leaf-700 bg-white/70 dark:bg-leaf-900/60 px-5 py-2.5 font-display font-medium text-leaf-700 dark:text-leaf-100 transition-all duration-300 hover:border-leaf-500 hover:-translate-y-0.5;
+  }
+
+  .btn-ghost {
+    @apply inline-flex items-center justify-center gap-2 rounded-xl px-4 py-2 font-medium text-leaf-700 dark:text-leaf-100 transition-colors duration-200 hover:bg-leaf-100 dark:hover:bg-leaf-900;
+  }
+
+  .section {
+    @apply mx-auto max-w-7xl px-6 py-20 sm:px-8 lg:px-10;
+  }
+
+  .eyebrow {
+    @apply inline-block font-mono text-xs uppercase tracking-[0.2em] text-leaf-600 dark:text-mint-400;
+  }
+
+  .skeleton {
+    @apply relative overflow-hidden bg-leaf-100 dark:bg-leaf-900 rounded-xl;
+  }
+  .skeleton::after {
+    content: '';
+    @apply absolute inset-0;
+    background: linear-gradient(90deg, transparent, rgba(255,255,255,0.35), transparent);
+    background-size: 500px 100%;
+    animation: shimmer 1.6s linear infinite;
+  }
+  .dark .skeleton::after {
+    background: linear-gradient(90deg, transparent, rgba(255,255,255,0.06), transparent);
+    background-size: 500px 100%;
+  }
+}
+
+.reveal {
+  opacity: 0;
+  transform: translateY(24px);
+  transition: opacity 0.7s ease, transform 0.7s ease;
+}
+.reveal.in-view {
+  opacity: 1;
+  transform: translateY(0);
+}
