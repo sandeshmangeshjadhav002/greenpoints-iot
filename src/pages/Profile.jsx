@@ -1,8 +1,9 @@
 import { useState } from 'react'
-import { Mail, Phone, MapPin, Calendar, Coins, Recycle, Leaf, Flame, Award, Sparkles, Cpu, Users, Trophy, Camera } from 'lucide-react'
+import { Mail, Phone, MapPin, Calendar, Coins, Recycle, Leaf, Flame, Award, Sparkles, Cpu, Users, Trophy, Camera, UserCircle } from 'lucide-react'
 import Card from '../components/Card'
 import Badge from '../components/Badge'
 import Breadcrumb from '../components/Breadcrumb'
+import EmptyState from '../components/EmptyState'
 import { RadialProgress } from '../components/ProgressBar'
 import { currentUser, settingsGroups } from '../data/users'
 import { badges } from '../data/history'
@@ -32,6 +33,15 @@ function Toggle({ initial }) {
 }
 
 export default function Profile() {
+  if (!currentUser.id) {
+    return (
+      <div className="mx-auto max-w-6xl">
+        <Breadcrumb items={[{ label: 'Profile' }]} />
+        <EmptyState icon={UserCircle} title="No profile data" description="Sign in to view your profile and recycling progress." />
+      </div>
+    )
+  }
+
   return (
     <div className="mx-auto max-w-6xl">
       <Breadcrumb items={[{ label: 'Profile' }]} />

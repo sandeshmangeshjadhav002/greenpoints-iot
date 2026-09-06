@@ -2,7 +2,7 @@
 
 A frontend-only React (Vite) + Tailwind CSS application for a smart waste
 management and reward-token platform. No backend, database, auth, or API
-calls are included — everything runs on realistic dummy data so it's easy
+calls are included — connect the frontend to your API to display live data.
 to preview and later wire up to a real Node.js backend and ESP32 hardware.
 
 ## Getting started
@@ -36,7 +36,7 @@ src/
 ├── assets/          static assets (currently images are remote/CDN)
 ├── components/       reusable UI building blocks (Card, Button, Table, Modal, ...)
 ├── context/          ThemeContext (dark/light mode)
-├── data/              dummy data (users, bins, rewards, notifications, analytics, ...)
+├── data/              empty API-ready data contracts (users, bins, rewards, notifications, analytics, ...)
 ├── hooks/             useCountUp, useInView
 ├── layouts/           MainLayout (public pages), DashboardLayout (app pages)
 ├── pages/             Landing, Dashboard, SmartBins, Rewards, Leaderboard,
@@ -49,7 +49,7 @@ src/
 
 ## Notes for backend integration
 
-- All dummy data lives in `src/data/*.js` — replace these with API calls
+- `src/data/*.js` provides empty initial states until API calls are connected
   (e.g. React Query / fetch) when a Node.js backend is available.
 - `src/pages/SmartBins.jsx` and its `bins` data model are shaped to match
   typical ESP32 sensor payloads (fill level, battery, wifi, sensor status).
