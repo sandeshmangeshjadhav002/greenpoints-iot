@@ -40,7 +40,7 @@ export default function Contact() {
               <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                 <div>
                   <label className="mb-1.5 block text-sm font-medium">Full name</label>
-                  <input required type="text" placeholder="Aditi Rao" className="w-full rounded-xl border border-leaf-200 dark:border-leaf-800 bg-white/70 dark:bg-leaf-900/60 px-4 py-2.5 text-sm outline-none focus:border-leaf-500 focus:ring-2 focus:ring-leaf-500/20" />
+                  <input required type="text" placeholder="Your name" className="w-full rounded-xl border border-leaf-200 dark:border-leaf-800 bg-white/70 dark:bg-leaf-900/60 px-4 py-2.5 text-sm outline-none focus:border-leaf-500 focus:ring-2 focus:ring-leaf-500/20" />
                 </div>
                 <div>
                   <label className="mb-1.5 block text-sm font-medium">Email</label>

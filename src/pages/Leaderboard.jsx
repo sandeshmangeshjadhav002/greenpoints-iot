@@ -67,11 +67,8 @@ export default function Leaderboard() {
 
         <div className="space-y-5">
           <Card className="text-center">
-            <img src={currentUser.avatar} alt="You" className="mx-auto h-14 w-14 rounded-full ring-4 ring-leaf-100 dark:ring-leaf-900" />
-            <p className="mt-2 font-display font-semibold">Your rank: #{currentUser.rank}</p>
-            <p className="flex items-center justify-center gap-1 text-xs text-leaf-600 dark:text-mint-400">
-              <TrendingUp size={12} /> Up 2 places this week
-            </p>
+            <p className="font-display font-semibold">Your rank</p>
+            <p className="mt-1 text-sm text-leaf-700/60 dark:text-leaf-200/50">Your rank will appear once leaderboard data is available.</p>
           </Card>
 
           <Card>

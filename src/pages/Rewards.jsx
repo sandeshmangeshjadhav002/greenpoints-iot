@@ -5,6 +5,7 @@ import Badge from '../components/Badge'
 import Button from '../components/Button'
 import Modal from '../components/Modal'
 import Breadcrumb from '../components/Breadcrumb'
+import EmptyState from '../components/EmptyState'
 import { rewards } from '../data/rewards'
 import { currentUser } from '../data/users'
 
@@ -32,6 +33,9 @@ export default function Rewards() {
         </div>
       </div>
 
+      {rewards.length === 0 ? (
+        <EmptyState icon={Gift} title="No rewards available" description="Available rewards will appear here when the catalog is connected." />
+      ) : (
       <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
         {rewards.map((r) => {
           const affordable = currentUser.tokens >= r.tokens
@@ -62,6 +66,7 @@ export default function Rewards() {
           )
         })}
       </div>
+      )}
 
       <Modal open={!!selected} onClose={() => setSelected(null)} title={redeemed ? 'Redeemed!' : 'Confirm Redemption'}>
         {selected && !redeemed && (

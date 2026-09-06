@@ -28,7 +28,6 @@ export default function Dashboard() {
       {/* Welcome */}
       <Card className="flex flex-col items-start justify-between gap-6 sm:flex-row sm:items-center">
         <div className="flex items-center gap-4">
-          <img src={currentUser.avatar} alt={currentUser.name} className="h-14 w-14 rounded-2xl ring-4 ring-leaf-100 dark:ring-leaf-900" />
           <div>
             <h1 className="font-display text-xl font-bold sm:text-2xl">Welcome back, {currentUser.name.split(' ')[0]} 👋</h1>
             <p className="text-sm text-leaf-700/70 dark:text-leaf-200/60">
@@ -36,14 +35,14 @@ export default function Dashboard() {
             </p>
           </div>
         </div>
-        <Badge variant="leaf" className="px-4 py-2 text-sm">{currentUser.level}</Badge>
+        {currentUser.level && <Badge variant="leaf" className="px-4 py-2 text-sm">{currentUser.level}</Badge>}
       </Card>
 
       {/* Stat cards */}
       <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-4">
-        <StatCard icon={Coins} label="Token Balance" value={currentUser.tokens} trend={8.4} accent="leaf" />
-        <StatCard icon={Recycle} label="Total Waste Recycled (kg)" value={currentUser.totalWasteKg} decimals={1} trend={5.1} accent="sky" />
-        <StatCard icon={Leaf} label="Carbon Emissions Saved (kg)" value={currentUser.co2SavedKg} decimals={1} trend={12.3} accent="leaf" />
+        <StatCard icon={Coins} label="Token Balance" value={currentUser.tokens} trend={0} accent="leaf" />
+        <StatCard icon={Recycle} label="Total Waste Recycled (kg)" value={currentUser.totalWasteKg} decimals={1} trend={0} accent="sky" />
+        <StatCard icon={Leaf} label="Carbon Emissions Saved (kg)" value={currentUser.co2SavedKg} decimals={1} trend={0} accent="leaf" />
         <StatCard icon={Flame} label="Recycling Streak (days)" value={currentUser.streakDays} trend={0} accent="amber" />
       </div>
 
@@ -51,33 +50,33 @@ export default function Dashboard() {
         {/* Environmental impact + progress */}
         <Card className="flex flex-col items-center justify-center text-center">
           <p className="mb-3 font-display text-sm font-semibold text-leaf-700/70 dark:text-leaf-200/60">Environmental Impact</p>
-          <RadialProgress value={74} colorClass="text-leaf-500" label="74" sublabel="Eco Score" size={120} />
+          <RadialProgress value={0} colorClass="text-leaf-500" label="0" sublabel="Eco Score" size={120} />
           <p className="mt-4 text-xs text-leaf-700/60 dark:text-leaf-200/50">
-            Equivalent to planting <span className="font-semibold text-leaf-600 dark:text-mint-400">9 trees</span> this year.
+            No impact data is available yet.
           </p>
         </Card>
 
         {/* Progress to next reward */}
         <Card className="lg:col-span-2">
           <div className="mb-4 flex items-center justify-between">
-            <p className="font-display text-sm font-semibold">Progress to {currentUser.nextLevel}</p>
+            <p className="font-display text-sm font-semibold">Progress to next reward</p>
             <span className="font-mono text-xs text-leaf-700/60 dark:text-leaf-200/50">{currentUser.levelProgress}%</span>
           </div>
           <ProgressBar value={currentUser.levelProgress} colorClass="from-leaf-500 to-sky-500" showValue={false} />
           <p className="mt-3 text-xs text-leaf-700/60 dark:text-leaf-200/50">
-            Recycle <span className="font-semibold">64kg</span> more to unlock Platinum perks and a 1.5x token multiplier.
+            Recycling progress will be shown here when available.
           </p>
           <div className="mt-5 grid grid-cols-3 gap-3 text-center">
             <div>
-              <p className="font-display text-lg font-bold">1,240</p>
+              <p className="font-display text-lg font-bold">0</p>
               <p className="text-[11px] text-leaf-700/60 dark:text-leaf-200/50">Tokens to next tier</p>
             </div>
             <div>
-              <p className="font-display text-lg font-bold">#{currentUser.rank}</p>
+              <p className="font-display text-lg font-bold">—</p>
               <p className="text-[11px] text-leaf-700/60 dark:text-leaf-200/50">City rank</p>
             </div>
             <div>
-              <p className="font-display text-lg font-bold">1.5x</p>
+              <p className="font-display text-lg font-bold">—</p>
               <p className="text-[11px] text-leaf-700/60 dark:text-leaf-200/50">Next multiplier</p>
             </div>
           </div>
