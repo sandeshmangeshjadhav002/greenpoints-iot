@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import { Link, NavLink } from 'react-router-dom'
 import { Menu, X, Recycle, Sun, Moon, ArrowRight } from 'lucide-react'
 import { useTheme } from '../context/ThemeContext'
+import { useAuth } from '../context/AuthContext'
 
 const links = [
   { to: '/', label: 'Home' },
@@ -13,6 +14,7 @@ export default function Navbar() {
   const [open, setOpen] = useState(false)
   const [scrolled, setScrolled] = useState(false)
   const { theme, toggleTheme } = useTheme()
+  const { user } = useAuth()
 
   useEffect(() => {
     const onScroll = () => setScrolled(window.scrollY > 12)
@@ -54,8 +56,8 @@ export default function Navbar() {
           >
             {theme === 'dark' ? <Sun size={18} /> : <Moon size={18} />}
           </button>
-          <Link to="/dashboard" className="btn-primary text-sm">
-            Open Dashboard <ArrowRight size={16} />
+          <Link to={user ? '/dashboard' : '/login'} className="btn-primary text-sm">
+            {user ? 'Open Dashboard' : 'Sign in'} <ArrowRight size={16} />
           </Link>
         </div>
 
@@ -82,8 +84,8 @@ export default function Navbar() {
           >
             {theme === 'dark' ? <Sun size={16} /> : <Moon size={16} />} Toggle theme
           </button>
-          <Link to="/dashboard" onClick={() => setOpen(false)} className="btn-primary mt-2 text-sm">
-            Open Dashboard <ArrowRight size={16} />
+          <Link to={user ? '/dashboard' : '/login'} onClick={() => setOpen(false)} className="btn-primary mt-2 text-sm">
+            {user ? 'Open Dashboard' : 'Sign in'} <ArrowRight size={16} />
           </Link>
         </div>
       )}
