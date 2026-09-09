@@ -1,0 +1,5 @@
+#define WIFI_SSID "SJ"
+#define WIFI_PASSWORD "sandesh2"
+#define API_BASE_URL "https://your-api.example.com"
+#define BIN_CODE "BIN-001"
+#define DEVICE_API_KEY "the-plaintext-device-key"
