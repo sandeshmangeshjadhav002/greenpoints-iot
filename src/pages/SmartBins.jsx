@@ -6,12 +6,13 @@ import Breadcrumb from '../components/Breadcrumb'
 import SearchBar from '../components/SearchBar'
 import EmptyState from '../components/EmptyState'
 import { ProgressBar } from '../components/ProgressBar'
-import { bins } from '../data/bins'
+import useLiveBins from '../hooks/useLiveBins'
 import { healthColor, classNames } from '../utils/helpers'
 
 const wasteTypes = ['All', 'Recyclable', 'Organic', 'General', 'E-Waste']
 
 export default function SmartBins() {
+  const { bins, loading } = useLiveBins()
   const [query, setQuery] = useState('')
   const [filter, setFilter] = useState('All')
 
@@ -54,7 +55,9 @@ export default function SmartBins() {
         ))}
       </div>
 
-      {filtered.length === 0 ? (
+      {loading ? (
+        <EmptyState icon={Radio} title="Loading live bin status" description="Connecting to the EcoLoop API..." />
+      ) : filtered.length === 0 ? (
         <EmptyState
           icon={SearchIcon}
           title="No bins found"
