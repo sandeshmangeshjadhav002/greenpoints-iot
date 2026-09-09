@@ -5,3 +5,6 @@ dist
 .npm
 .env
 Backend/.env
+Firmware/**/secrets.h
+__pycache__/
+*.py[cod]
