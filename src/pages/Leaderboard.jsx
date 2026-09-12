@@ -2,6 +2,7 @@ import { Trophy, TrendingUp } from 'lucide-react'
 import Card from '../components/Card'
 import Table from '../components/Table'
 import Breadcrumb from '../components/Breadcrumb'
+import EmptyState from '../components/EmptyState'
 import { weeklyLeaders, monthlyAchievements } from '../data/leaderboard'
 import { currentUser } from '../data/users'
 import { classNames } from '../utils/helpers'
@@ -25,6 +26,10 @@ export default function Leaderboard() {
         <p className="text-sm text-leaf-700/70 dark:text-leaf-200/60">Top recyclers in Mumbai this week</p>
       </div>
 
+      {weeklyLeaders.length === 0 ? (
+        <EmptyState icon={Trophy} title="No leaderboard data yet" description="Rankings will appear here once recycling activity is recorded." />
+      ) : (
+        <>
       {/* Podium */}
       <div className="mb-8 flex flex-col items-center gap-4 sm:flex-row sm:items-end sm:justify-center">
         {podium.map((p) => (
@@ -86,6 +91,8 @@ export default function Leaderboard() {
           </Card>
         </div>
       </div>
+        </>
+      )}
     </div>
   )
 }
