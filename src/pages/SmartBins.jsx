@@ -24,7 +24,7 @@ export default function SmartBins() {
       const matchesFilter = filter === 'All' || b.wasteType === filter
       return matchesQuery && matchesFilter
     })
-  }, [query, filter])
+  }, [bins, query, filter])
 
   return (
     <div className="mx-auto max-w-7xl">
