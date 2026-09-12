@@ -69,7 +69,7 @@ export default function Profile() {
               <MapPin size={15} /> {currentUser.location}
             </div>
             <div className="flex items-center gap-2 text-leaf-700/70 dark:text-leaf-200/60">
-              <Calendar size={15} /> Joined {new Date(currentUser.joinDate).toLocaleDateString('en-IN', { month: 'long', year: 'numeric' })}
+              <Calendar size={15} /> Joined {currentUser.joinDate ? new Date(currentUser.joinDate).toLocaleDateString('en-IN', { month: 'long', year: 'numeric' }) : 'Unknown'}
             </div>
           </div>
 
