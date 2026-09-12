@@ -1,5 +1,6 @@
 import { Target, Eye, ListChecks, Cpu, Leaf, Server, Wifi as WifiIcon, Smartphone } from 'lucide-react'
 import Card from '../components/Card'
+import EmptyState from '../components/EmptyState'
 import { teamMembers } from '../data/history'
 
 const objectives = [
@@ -11,7 +12,7 @@ const objectives = [
 
 const techStack = [
   { icon: Cpu, name: 'ESP32 Microcontrollers', desc: 'Bin-side sensor hubs for fill, weight, and connectivity.' },
-  { icon: Server, name: 'Node.js Backend', desc: 'Planned API layer for auth, token ledger, and bin telemetry.' },
+  { icon: Server, name: 'Python / FastAPI', desc: 'Backend API layer for auth, token ledger, and bin telemetry.' },
   { icon: WifiIcon, name: 'MQTT / Wi-Fi', desc: 'Low-latency bin-to-cloud communication protocol.' },
   { icon: Smartphone, name: 'React + Tailwind', desc: 'This responsive frontend, ready to consume live data.' },
 ]
@@ -81,15 +82,19 @@ export default function About() {
           <span className="eyebrow">Team</span>
           <h2 className="mt-3 font-display text-2xl font-bold">The people behind EcoLoop</h2>
         </div>
-        <div className="grid grid-cols-2 gap-6 sm:grid-cols-4">
-          {teamMembers.map((m) => (
-            <Card key={m.name} className="text-center">
-              <img src={m.avatar} alt={m.name} className="mx-auto h-16 w-16 rounded-full ring-4 ring-leaf-100 dark:ring-leaf-900" />
-              <p className="mt-3 font-display text-sm font-semibold">{m.name}</p>
-              <p className="text-xs text-leaf-700/60 dark:text-leaf-200/50">{m.role}</p>
-            </Card>
-          ))}
-        </div>
+        {teamMembers.length === 0 ? (
+          <EmptyState icon={Leaf} title="Team profiles coming soon" description="Meet the team behind EcoLoop once the profiles are added." />
+        ) : (
+          <div className="grid grid-cols-2 gap-6 sm:grid-cols-4">
+            {teamMembers.map((m) => (
+              <Card key={m.name} className="text-center">
+                <img src={m.avatar} alt={m.name} className="mx-auto h-16 w-16 rounded-full ring-4 ring-leaf-100 dark:ring-leaf-900" />
+                <p className="mt-3 font-display text-sm font-semibold">{m.name}</p>
+                <p className="text-xs text-leaf-700/60 dark:text-leaf-200/50">{m.role}</p>
+              </Card>
+            ))}
+          </div>
+        )}
       </section>
 
       <section className="section py-10">
