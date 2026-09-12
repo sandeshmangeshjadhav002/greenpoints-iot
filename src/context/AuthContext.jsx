@@ -20,7 +20,7 @@ export function AuthProvider({ children }) {
       method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ email, password }),
     })
     const body = await response.json()
-    if (!response.ok) throw new Error(body.detail || 'Authentication failed')
+    if (!response.ok) throw new Error(body.detail || body.error || 'Authentication failed')
     if (body.accessToken) persist(body)
     return body
   }, [persist])

@@ -1,50 +1,13 @@
-import hashlib
 from contextlib import asynccontextmanager
-from datetime import datetime, timezone
-from pathlib import Path
 from typing import Any
 
-from fastapi import FastAPI, Header, HTTPException, WebSocket, WebSocketDisconnect
+from fastapi import FastAPI, Request, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
 from pydantic import BaseModel, Field
-from pydantic_settings import BaseSettings, SettingsConfigDict
-from supabase import Client, create_client
 
-
-class Settings(BaseSettings):
-    supabase_url: str
-    supabase_key: str
-    frontend_origins: str = "http://localhost:5173"
-    model_config = SettingsConfigDict(env_file=Path(__file__).with_name(".env"), extra="ignore")
-
-    @property
-    def origins(self) -> list[str]:
-        return [origin.strip() for origin in self.frontend_origins.split(",") if origin.strip()]
-
-
-settings = Settings()
-supabase: Client = create_client(settings.supabase_url, settings.supabase_key)
-
-
-class TelemetryIn(BaseModel):
-    fill_level: float = Field(ge=0, le=100)
-    battery: float = Field(ge=0, le=100)
-    sensor_status: str = Field(default="online", pattern="^(online|offline)$")
-    wifi_status: str = Field(default="connected", pattern="^(connected|weak|disconnected)$")
-    weight_kg: float | None = Field(default=None, ge=0)
-    temperature_c: float | None = None
-
-
-class AuthCredentials(BaseModel):
-    email: str = Field(min_length=3, max_length=320)
-    password: str = Field(min_length=8, max_length=128)
-
-
-class ContactMessageIn(BaseModel):
-    name: str = Field(min_length=1, max_length=120)
-    email: str = Field(min_length=3, max_length=320)
-    subject: str = Field(min_length=1, max_length=200)
-    message: str = Field(min_length=1, max_length=5000)
+from config import settings
+from database import get_admin_client
 
 
 class ConnectionManager:
@@ -70,43 +33,57 @@ class ConnectionManager:
 manager = ConnectionManager()
 
 
-def api_bin(row: dict[str, Any]) -> dict[str, Any]:
-    return {"id": row["code"], "location": row["location"], "wasteType": row["waste_type"],
-            "fillLevel": row["fill_level"], "battery": row["battery"], "sensor": row["sensor_status"],
-            "wifi": row["wifi_status"], "health": row["health"], "lastUpdated": row["last_seen_at"]}
-
-
-def fetch_bin(code: str) -> dict[str, Any]:
-    response = supabase.table("smart_bins").select("*").eq("code", code).limit(1).execute()
-    if not response.data:
-        raise HTTPException(status_code=404, detail="Unknown bin")
-    return response.data[0]
-
-
 @asynccontextmanager
 async def lifespan(_: FastAPI):
     yield
 
 
-app = FastAPI(title="EcoLoop API", version="0.2.0", lifespan=lifespan)
-app.add_middleware(CORSMiddleware, allow_origins=settings.origins, allow_credentials=True, allow_methods=["*"], allow_headers=["*"])
+app = FastAPI(
+    title="EcoLoop API",
+    version="1.0.0",
+    lifespan=lifespan,
+    description="EcoLoop / EcoPoints backend — FastAPI + Supabase + IoT",
+)
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=settings.origins,
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
+
+@app.exception_handler(Exception)
+async def _unhandled(_: Request, exc: Exception):
+    code = getattr(exc, "status_code", 500)
+    detail = getattr(exc, "detail", str(exc))
+    if not isinstance(detail, str):
+        detail = str(detail)
+    return JSONResponse(
+        status_code=int(code) if isinstance(code, int) else 500,
+        content={"success": False, "error": detail},
+    )
 
 
 @app.get("/api/health", tags=["system"])
 def health_check() -> dict[str, str]:
-    return {"status": "ok", "service": "ecoloop-api"}
+    return {"status": "ok", "service": "ecoloop-api", "version": "1.0.0"}
 
 
-def session_response(result: Any) -> dict[str, Any]:
-    if not result.user:
-        raise HTTPException(status_code=400, detail="Check your email to confirm the account before signing in.")
-    return {
-        "user": {"id": str(result.user.id), "email": result.user.email},
-        "accessToken": result.session.access_token if result.session else None,
-        "refreshToken": result.session.refresh_token if result.session else None,
-    }
+from routers import auth, users, devices, bins, waste, points, dashboard, admin, ai
+
+app.include_router(auth.router)
+app.include_router(users.router)
+app.include_router(devices.router)
+app.include_router(bins.router)
+app.include_router(waste.router)
+app.include_router(points.router)
+app.include_router(dashboard.router)
+app.include_router(admin.router)
+app.include_router(ai.router)
 
 
+<<<<<<< Updated upstream
 @app.post("/api/auth/signup", tags=["auth"])
 def sign_up(credentials: AuthCredentials) -> dict[str, Any]:
     try:
@@ -121,40 +98,20 @@ def sign_in(credentials: AuthCredentials) -> dict[str, Any]:
         return session_response(supabase.auth.sign_in_with_password({"email": credentials.email, "password": credentials.password}))
     except Exception as error:
         raise HTTPException(status_code=401, detail="Invalid email or password") from error
+=======
+class ContactMessageIn(BaseModel):
+    name: str = Field(min_length=1, max_length=120)
+    email: str = Field(min_length=3, max_length=320)
+    subject: str = Field(min_length=1, max_length=200)
+    message: str = Field(min_length=1, max_length=5000)
+>>>>>>> Stashed changes
 
 
 @app.post("/api/contact", status_code=201, tags=["contact"])
-def create_contact_message(message: ContactMessageIn) -> dict[str, bool]:
-    supabase.table("contact_messages").insert(message.model_dump()).execute()
-    return {"received": True}
-
-
-@app.get("/api/bins", tags=["bins"])
-def list_bins() -> list[dict[str, Any]]:
-    response = supabase.table("smart_bins").select("*").order("code").execute()
-    return [api_bin(row) for row in response.data]
-
-
-@app.get("/api/bins/{code}", tags=["bins"])
-def get_bin(code: str) -> dict[str, Any]:
-    return api_bin(fetch_bin(code))
-
-
-@app.post("/api/devices/{code}/telemetry", tags=["devices"])
-async def ingest_telemetry(code: str, telemetry: TelemetryIn, x_device_key: str | None = Header(default=None)) -> dict[str, Any]:
-    if not x_device_key:
-        raise HTTPException(status_code=401, detail="Missing device key")
-    current = fetch_bin(code)
-    if hashlib.sha256(x_device_key.encode()).hexdigest() != current["device_key_hash"]:
-        raise HTTPException(status_code=401, detail="Invalid device key")
-    now = datetime.now(timezone.utc).isoformat()
-    health = "critical" if telemetry.fill_level >= 90 or telemetry.battery < 20 else "warning" if telemetry.fill_level >= 75 or telemetry.battery < 35 else "good"
-    payload = telemetry.model_dump()
-    supabase.table("bin_telemetry").insert({"bin_id": current["id"], "recorded_at": now, **payload}).execute()
-    updated = supabase.table("smart_bins").update({"fill_level": telemetry.fill_level, "battery": telemetry.battery, "sensor_status": telemetry.sensor_status, "wifi_status": telemetry.wifi_status, "health": health, "last_seen_at": now}).eq("id", current["id"]).execute()
-    bin_data = api_bin(updated.data[0])
-    await manager.broadcast({"type": "bin.updated", "bin": bin_data})
-    return {"accepted": True, "bin": bin_data}
+def create_contact_message(message: ContactMessageIn):
+    # Contact messages are written by the server, not directly by anonymous clients.
+    get_admin_client().table("contact_messages").insert(message.model_dump()).execute()
+    return {"success": True, "data": {"received": True}}
 
 
 @app.websocket("/ws/bins")
