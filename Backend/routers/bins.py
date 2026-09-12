@@ -14,6 +14,27 @@ def list_bins():
     return [api_bin(row) for row in response.data]
 
 
+@router.get("/all-qr")
+def all_bins_qr(_: TokenData = Depends(get_current_user)):
+    """Return every bin with its QR token and scan URL — used by the printable QR page."""
+    import hashlib
+    admin = get_admin_client()
+    r = admin.table("smart_bins").select("id, code, location, waste_type, qr_token").order("code").execute()
+    base = "http://localhost:5173"  # overridden on the frontend
+    out = []
+    for row in r.data:
+        qt = row.get("qr_token") or hashlib.sha256((row["code"] + "-qr-ecoloop").encode()).hexdigest()
+        out.append({
+            "id":        row.get("id"),
+            "code":      row["code"],
+            "location":  row["location"],
+            "wasteType": row["waste_type"],
+            "qrToken":   qt,
+            "scanUrl":   f"/scan?bin={qt}",
+        })
+    return {"success": True, "data": out}
+
+
 @router.get("/{code}")
 def get_bin(code: str):
     r = supabase.table("smart_bins").select("*").eq("code", code).limit(1).execute()

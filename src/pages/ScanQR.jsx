@@ -1,100 +1,139 @@
-import { useState, useEffect, useRef } from 'react'
-import { useSearchParams } from 'react-router-dom'
-import { QrCode, ScanLine, CheckCircle2, AlertCircle, Coins, Recycle, ChevronDown } from 'lucide-react'
+/**
+ * ScanQR  —  /scan
+ *
+ * • Opens the rear camera and decodes QR frames using jsQR (works in all browsers).
+ * • Also accepts a ?bin=<token> URL param (user taps printed QR → browser opens this page).
+ * • Manual entry fallback for devices without camera.
+ * • Posts to POST /api/waste/scan-qr → awards tokens and shows result.
+ */
+import { useState, useEffect, useRef, useCallback } from 'react'
+import { useSearchParams, useNavigate } from 'react-router-dom'
+import jsQR from 'jsqr'
+import {
+  QrCode, ScanLine, CheckCircle2, AlertCircle,
+  Coins, Recycle, ChevronDown, Camera, X,
+} from 'lucide-react'
 import Card from '../components/Card'
 import Breadcrumb from '../components/Breadcrumb'
 import Button from '../components/Button'
-import { ProgressBar } from '../components/ProgressBar'
 import { useAuth } from '../context/AuthContext'
 import { classNames } from '../utils/helpers'
 
 const WASTE_TYPES = ['Recyclable', 'Organic', 'General', 'E-Waste']
-
-const WEIGHT_PRESETS = [
-  { label: '0.5 kg', value: 0.5 },
-  { label: '1 kg',   value: 1 },
-  { label: '2 kg',   value: 2 },
-  { label: '5 kg',   value: 5 },
-]
-
 const TOKEN_RATES = { Recyclable: 5, Organic: 3, 'E-Waste': 10, General: 2 }
+const estimate    = (type, kg) => 1 + Math.round((TOKEN_RATES[type] ?? 2) * Math.max(0, kg))
 
-function estimateTokens(wasteType, weightKg) {
-  return 1 + Math.round((TOKEN_RATES[wasteType] ?? 2) * weightKg)
+// Extract qr_token from a raw QR value — accepts:
+//   • full URL  /scan?bin=TOKEN  or  http://…/scan?bin=TOKEN
+//   • bare 64-char hex token
+function extractToken(raw) {
+  const m = raw.match(/[?&]bin=([a-f0-9]{64})/)
+  if (m) return m[1]
+  if (/^[a-f0-9]{64}$/.test(raw.trim())) return raw.trim()
+  return null
 }
 
 export default function ScanQR() {
-  const [searchParams] = useSearchParams()
-  const { apiFetch } = useAuth()
+  const [searchParams]    = useSearchParams()
+  const navigate          = useNavigate()
+  const { apiFetch }      = useAuth()
 
-  // Pre-fill from URL ?bin=<qr_token>
-  const [qrToken, setQrToken]       = useState(searchParams.get('bin') || '')
-  const [weightKg, setWeightKg]     = useState(1)
-  const [wasteType, setWasteType]   = useState('Recyclable')
+  // Pre-fill from URL ?bin=<token>  (user opens page by scanning a printed QR)
+  const urlToken = searchParams.get('bin') || ''
+
+  const [qrToken,    setQrToken]    = useState(urlToken)
+  const [weightKg,   setWeightKg]   = useState('')
+  const [wasteType,  setWasteType]  = useState('Recyclable')
   const [submitting, setSubmitting] = useState(false)
-  const [result, setResult]         = useState(null)   // { tokens_earned, new_balance, bin_location, waste_type, weight_kg }
-  const [error, setError]           = useState('')
-  const [cameraOpen, setCameraOpen] = useState(false)
-  const videoRef  = useRef(null)
-  const streamRef = useRef(null)
+  const [result,     setResult]     = useState(null)
+  const [error,      setError]      = useState('')
 
-  // If a ?bin= param arrived, auto-fill and scroll straight to the form
-  const hasUrlToken = !!searchParams.get('bin')
+  // Camera state
+  const [cameraOpen,  setCameraOpen]  = useState(false)
+  const [cameraError, setCameraError] = useState('')
+  const [scanning,    setScanning]    = useState(false)   // actively reading frames
+  const [scanMsg,     setScanMsg]     = useState('')
 
-  // ── camera helpers ────────────────────────────────────────────────────────
-  async function startCamera() {
-    try {
-      const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } })
-      streamRef.current = stream
-      if (videoRef.current) videoRef.current.srcObject = stream
-      setCameraOpen(true)
-    } catch {
-      setError('Camera access denied. Enter the bin code manually below.')
-    }
-  }
+  const videoRef   = useRef(null)
+  const canvasRef  = useRef(null)
+  const streamRef  = useRef(null)
+  const rafRef     = useRef(null)
 
-  function stopCamera() {
+  // ── camera lifecycle ──────────────────────────────────────────────────────
+  const stopCamera = useCallback(() => {
+    cancelAnimationFrame(rafRef.current)
     streamRef.current?.getTracks().forEach((t) => t.stop())
     streamRef.current = null
     setCameraOpen(false)
+    setScanning(false)
+    setScanMsg('')
+  }, [])
+
+  useEffect(() => () => stopCamera(), [stopCamera])
+
+  async function startCamera() {
+    setCameraError('')
+    setScanMsg('')
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({
+        video: { facingMode: { ideal: 'environment' }, width: { ideal: 1280 }, height: { ideal: 720 } },
+      })
+      streamRef.current = stream
+      if (videoRef.current) {
+        videoRef.current.srcObject = stream
+        await videoRef.current.play()
+      }
+      setCameraOpen(true)
+      setScanning(true)
+    } catch (e) {
+      setCameraError('Camera access denied. Enter the bin token manually below.')
+    }
   }
 
-  useEffect(() => () => stopCamera(), [])
-
-  // ── QR decode via BarcodeDetector (Chrome 88+) ───────────────────────────
+  // ── jsQR scan loop ────────────────────────────────────────────────────────
   useEffect(() => {
-    if (!cameraOpen || !videoRef.current) return
-    if (!('BarcodeDetector' in window)) return
+    if (!scanning || !cameraOpen) return
 
-    const detector = new window.BarcodeDetector({ formats: ['qr_code'] })
-    let running = true
+    const canvas = canvasRef.current
+    const video  = videoRef.current
+    if (!canvas || !video) return
+    const ctx = canvas.getContext('2d', { willReadFrequently: true })
 
-    async function tick() {
-      if (!running || !videoRef.current) return
-      try {
-        const codes = await detector.detect(videoRef.current)
-        if (codes.length > 0) {
-          const raw = codes[0].rawValue
-          // Accept either a full URL like /scan?bin=TOKEN or bare token
-          const match = raw.match(/[?&]bin=([^&]+)/) || raw.match(/^([a-f0-9]{64})$/)
-          if (match) {
-            setQrToken(match[1])
-            stopCamera()
-            return
-          }
+    function tick() {
+      if (!video || video.readyState < video.HAVE_ENOUGH_DATA) {
+        rafRef.current = requestAnimationFrame(tick)
+        return
+      }
+      canvas.width  = video.videoWidth
+      canvas.height = video.videoHeight
+      ctx.drawImage(video, 0, 0, canvas.width, canvas.height)
+      const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height)
+      const code = jsQR(imageData.data, imageData.width, imageData.height, {
+        inversionAttempts: 'dontInvert',
+      })
+      if (code) {
+        const token = extractToken(code.data)
+        if (token) {
+          setQrToken(token)
+          setScanMsg('✓ QR code scanned successfully!')
+          stopCamera()
+          return
+        } else {
+          setScanMsg('QR found but not an EcoLoop bin code. Keep scanning…')
         }
-      } catch { /* frame not ready */ }
-      if (running) requestAnimationFrame(tick)
+      }
+      rafRef.current = requestAnimationFrame(tick)
     }
-    requestAnimationFrame(tick)
-    return () => { running = false }
-  }, [cameraOpen])
+    rafRef.current = requestAnimationFrame(tick)
+    return () => cancelAnimationFrame(rafRef.current)
+  }, [scanning, cameraOpen, stopCamera])
 
   // ── submit ────────────────────────────────────────────────────────────────
   async function handleSubmit(e) {
     e.preventDefault()
-    if (!qrToken.trim()) { setError('Please enter or scan a bin QR code.'); return }
-    if (weightKg <= 0)   { setError('Weight must be greater than 0.'); return }
+    const wt = parseFloat(weightKg)
+    if (!qrToken.trim())       { setError('Please scan a bin QR code or enter the token.'); return }
+    if (!weightKg || wt <= 0)  { setError('Enter the weight of waste (> 0 kg).'); return }
 
     setSubmitting(true)
     setError('')
@@ -102,14 +141,11 @@ export default function ScanQR() {
     try {
       const body = await apiFetch('/api/waste/scan-qr', {
         method: 'POST',
-        body: JSON.stringify({
-          qr_token: qrToken.trim(),
-          weight_kg: weightKg,
-          manual_waste_type: wasteType,
-        }),
+        body: JSON.stringify({ qr_token: qrToken.trim(), weight_kg: wt, manual_waste_type: wasteType }),
       })
       setResult(body.data)
       setQrToken('')
+      setWeightKg('')
     } catch (err) {
       setError(err.message)
     } finally {
@@ -117,35 +153,35 @@ export default function ScanQR() {
     }
   }
 
-  const estimated = estimateTokens(wasteType, weightKg)
+  const est = weightKg && parseFloat(weightKg) > 0 ? estimate(wasteType, parseFloat(weightKg)) : null
 
   // ── success screen ────────────────────────────────────────────────────────
   if (result) {
     return (
       <div className="mx-auto max-w-lg">
         <Breadcrumb items={[{ label: 'Scan QR' }]} />
-        <Card className="flex flex-col items-center py-10 text-center">
-          <div className="mb-4 flex h-20 w-20 items-center justify-center rounded-full bg-gradient-to-br from-leaf-500 to-sky-500 text-white shadow-glow">
+        <Card className="flex flex-col items-center py-10 text-center gap-5">
+          <div className="flex h-20 w-20 items-center justify-center rounded-full bg-gradient-to-br from-leaf-500 to-sky-500 text-white shadow-glow">
             <CheckCircle2 size={40} />
           </div>
-          <h2 className="font-display text-2xl font-bold">Recycling recorded!</h2>
-          <p className="mt-2 text-sm text-leaf-700/70 dark:text-leaf-200/60">
-            {result.weight_kg} kg of {result.waste_type} at {result.bin_location || result.bin_code}
-          </p>
-
-          <div className="mt-6 flex items-center gap-3 rounded-2xl bg-gradient-to-r from-leaf-500 to-sky-500 px-8 py-4 text-white shadow-glow">
+          <div>
+            <h2 className="font-display text-2xl font-bold">Recycling recorded!</h2>
+            <p className="mt-1 text-sm text-leaf-700/70 dark:text-leaf-200/60">
+              {result.weight_kg} kg of {result.waste_type}
+              {result.bin_location ? ` · ${result.bin_location}` : ''}
+            </p>
+          </div>
+          <div className="flex items-center gap-3 rounded-2xl bg-gradient-to-r from-leaf-500 to-sky-500 px-8 py-4 text-white shadow-glow">
             <Coins size={28} />
             <div className="text-left">
               <p className="font-display text-3xl font-bold">+{result.tokens_earned}</p>
               <p className="text-sm opacity-80">EcoPoints earned</p>
             </div>
           </div>
-
-          <p className="mt-4 text-sm text-leaf-700/60 dark:text-leaf-200/50">
+          <p className="text-sm text-leaf-700/60 dark:text-leaf-200/50">
             New balance: <span className="font-semibold">{result.new_balance} tokens</span>
           </p>
-
-          <Button className="mt-8 w-full" onClick={() => setResult(null)}>
+          <Button className="w-full" onClick={() => setResult(null)}>
             <ScanLine size={16} /> Scan Another
           </Button>
         </Card>
@@ -157,68 +193,105 @@ export default function ScanQR() {
   return (
     <div className="mx-auto max-w-lg">
       <Breadcrumb items={[{ label: 'Scan QR' }]} />
-
-      <div className="mb-6">
+      <div className="mb-5">
         <h1 className="font-display text-2xl font-bold">Scan Bin QR Code</h1>
         <p className="text-sm text-leaf-700/70 dark:text-leaf-200/60">
-          Scan the QR on any EcoLoop bin or enter its code manually to earn tokens.
+          Scan the QR sticker on any EcoLoop bin to earn tokens.
         </p>
       </div>
 
-      {/* Camera viewfinder */}
+      {/* ── Camera viewfinder ── */}
       {cameraOpen ? (
         <Card className="mb-5 overflow-hidden p-0">
-          <div className="relative">
-            <video ref={videoRef} autoPlay playsInline muted className="w-full rounded-2xl" />
+          <div className="relative bg-black">
+            <video
+              ref={videoRef}
+              playsInline
+              muted
+              className="w-full max-h-72 object-cover"
+            />
+            {/* Targeting overlay */}
             <div className="pointer-events-none absolute inset-0 flex items-center justify-center">
-              <div className="h-48 w-48 rounded-2xl border-4 border-white/80 shadow-glow" />
+              <div className="relative h-52 w-52">
+                {/* Corner brackets */}
+                {['top-0 left-0 border-t-4 border-l-4',
+                  'top-0 right-0 border-t-4 border-r-4',
+                  'bottom-0 left-0 border-b-4 border-l-4',
+                  'bottom-0 right-0 border-b-4 border-r-4'].map((cls, i) => (
+                  <div key={i} className={classNames('absolute h-8 w-8 rounded-sm border-leaf-400', cls)} />
+                ))}
+                {/* Scan line animation */}
+                <div className="absolute left-0 right-0 h-0.5 bg-leaf-400/80 animate-bounce" style={{ top: '50%' }} />
+              </div>
             </div>
             <button
               onClick={stopCamera}
-              className="absolute right-3 top-3 rounded-full bg-black/50 px-3 py-1 text-xs text-white"
+              className="absolute right-3 top-3 flex h-8 w-8 items-center justify-center rounded-full bg-black/60 text-white hover:bg-black/80"
             >
-              Cancel
+              <X size={16} />
             </button>
           </div>
-          <p className="py-3 text-center text-xs text-leaf-700/60 dark:text-leaf-200/50">
-            Point at the QR code on the bin
-          </p>
+          {scanMsg && (
+            <p className={classNames(
+              'px-4 py-2 text-center text-sm font-medium',
+              scanMsg.startsWith('✓') ? 'text-leaf-600 dark:text-mint-400' : 'text-amber-600 dark:text-amber-400',
+            )}>
+              {scanMsg}
+            </p>
+          )}
+          {/* Hidden canvas used by jsQR */}
+          <canvas ref={canvasRef} className="hidden" />
         </Card>
       ) : (
         <button
           onClick={startCamera}
           className="glass mb-5 flex w-full flex-col items-center gap-3 rounded-2xl py-8 transition hover:shadow-glow"
         >
-          <QrCode size={40} className="text-leaf-500" />
+          <Camera size={40} className="text-leaf-500" />
           <span className="font-display font-semibold">Open Camera to Scan</span>
           <span className="text-xs text-leaf-700/60 dark:text-leaf-200/50">
-            Or enter the bin code below
+            Or enter the bin code manually below
           </span>
         </button>
       )}
 
+      {cameraError && (
+        <div className="mb-4 flex items-start gap-2 rounded-xl bg-red-50 dark:bg-red-900/20 px-4 py-3 text-sm text-red-600 dark:text-red-400">
+          <AlertCircle size={16} className="mt-0.5 shrink-0" /> {cameraError}
+        </div>
+      )}
+
+      {/* ── Form ── */}
       <Card>
         <form onSubmit={handleSubmit} className="space-y-5">
-          {/* QR token / bin code */}
+
+          {/* QR token */}
           <div>
             <label className="mb-1.5 block text-sm font-medium">Bin QR token</label>
-            <input
-              type="text"
-              value={qrToken}
-              onChange={(e) => setQrToken(e.target.value)}
-              placeholder="Scanned automatically, or paste here"
-              className={classNames(
-                'w-full rounded-xl border px-4 py-2.5 text-sm outline-none focus:ring-2',
-                qrToken
-                  ? 'border-leaf-500 focus:ring-leaf-500/20'
-                  : 'border-leaf-200 dark:border-leaf-800 focus:border-leaf-500 focus:ring-leaf-500/20',
-                'bg-white/70 dark:bg-leaf-900/60',
+            <div className="flex gap-2">
+              <input
+                type="text"
+                value={qrToken}
+                onChange={(e) => { setQrToken(e.target.value); setScanMsg('') }}
+                placeholder="Scanned automatically, or paste here"
+                className={classNames(
+                  'flex-1 rounded-xl border px-4 py-2.5 text-sm outline-none focus:ring-2',
+                  qrToken
+                    ? 'border-leaf-500 focus:ring-leaf-500/20 bg-leaf-50 dark:bg-leaf-900/60'
+                    : 'border-leaf-200 dark:border-leaf-800 bg-white/70 dark:bg-leaf-900/60 focus:border-leaf-500 focus:ring-leaf-500/20',
+                )}
+              />
+              {qrToken && (
+                <button type="button" onClick={() => { setQrToken(''); setScanMsg('') }}
+                  className="rounded-xl border border-leaf-200 dark:border-leaf-800 px-3 text-leaf-500 hover:bg-leaf-50 dark:hover:bg-leaf-900">
+                  <X size={16} />
+                </button>
               )}
-              readOnly={hasUrlToken && !!qrToken && !cameraOpen}
-            />
-            {hasUrlToken && qrToken && (
+            </div>
+            {qrToken && (
               <p className="mt-1 flex items-center gap-1 text-xs text-leaf-600 dark:text-mint-400">
-                <CheckCircle2 size={12} /> QR token detected from URL
+                <CheckCircle2 size={12} />
+                {urlToken && !scanMsg ? 'Token pre-filled from QR link' : scanMsg || 'Token ready'}
               </p>
             )}
           </div>
@@ -232,9 +305,7 @@ export default function ScanQR() {
                 onChange={(e) => setWasteType(e.target.value)}
                 className="w-full appearance-none rounded-xl border border-leaf-200 dark:border-leaf-800 bg-white/70 dark:bg-leaf-900/60 px-4 py-2.5 text-sm outline-none focus:border-leaf-500 focus:ring-2 focus:ring-leaf-500/20"
               >
-                {WASTE_TYPES.map((t) => (
-                  <option key={t} value={t}>{t}</option>
-                ))}
+                {WASTE_TYPES.map((t) => <option key={t} value={t}>{t}</option>)}
               </select>
               <ChevronDown size={16} className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-leaf-500" />
             </div>
@@ -242,56 +313,39 @@ export default function ScanQR() {
 
           {/* Weight */}
           <div>
-            <label className="mb-1.5 flex items-center justify-between text-sm font-medium">
-              <span>Estimated weight</span>
-              <span className="font-mono text-leaf-600 dark:text-mint-400">{weightKg} kg</span>
-            </label>
+            <label className="mb-1.5 block text-sm font-medium">Estimated weight (kg)</label>
             <input
-              type="range"
-              min="0.1" max="50" step="0.1"
+              type="number"
+              min="0.1"
+              max="500"
+              step="0.1"
               value={weightKg}
-              onChange={(e) => setWeightKg(parseFloat(e.target.value))}
-              className="w-full accent-leaf-500"
+              onChange={(e) => setWeightKg(e.target.value)}
+              placeholder="e.g. 1.5"
+              className="w-full rounded-xl border border-leaf-200 dark:border-leaf-800 bg-white/70 dark:bg-leaf-900/60 px-4 py-2.5 text-sm outline-none focus:border-leaf-500 focus:ring-2 focus:ring-leaf-500/20"
             />
-            <div className="mt-2 flex gap-2">
-              {WEIGHT_PRESETS.map((p) => (
-                <button
-                  key={p.value}
-                  type="button"
-                  onClick={() => setWeightKg(p.value)}
-                  className={classNames(
-                    'flex-1 rounded-lg py-1.5 text-xs font-medium transition',
-                    weightKg === p.value
-                      ? 'bg-gradient-to-r from-leaf-500 to-sky-500 text-white'
-                      : 'glass text-leaf-700 dark:text-leaf-100 hover:bg-leaf-100 dark:hover:bg-leaf-900',
-                  )}
-                >
-                  {p.label}
-                </button>
-              ))}
-            </div>
           </div>
 
           {/* Token preview */}
-          <div className="flex items-center justify-between rounded-xl bg-leaf-50 dark:bg-leaf-900/60 px-4 py-3">
-            <div className="flex items-center gap-2 text-sm text-leaf-700/70 dark:text-leaf-200/60">
-              <Recycle size={16} className="text-leaf-500" />
-              {weightKg} kg · {wasteType}
-            </div>
-            <div className="flex items-center gap-1.5 font-mono font-bold text-leaf-600 dark:text-mint-400">
-              <Coins size={16} />
-              ~{estimated} pts
-            </div>
-          </div>
-
-          {error && (
-            <div className="flex items-start gap-2 rounded-xl bg-red-50 dark:bg-red-900/20 px-4 py-3 text-sm text-red-600 dark:text-red-400">
-              <AlertCircle size={16} className="mt-0.5 shrink-0" />
-              {error}
+          {est !== null && (
+            <div className="flex items-center justify-between rounded-xl bg-leaf-50 dark:bg-leaf-900/60 px-4 py-3">
+              <div className="flex items-center gap-2 text-sm text-leaf-700/70 dark:text-leaf-200/60">
+                <Recycle size={16} className="text-leaf-500" />
+                {weightKg} kg · {wasteType}
+              </div>
+              <div className="flex items-center gap-1.5 font-mono font-bold text-leaf-600 dark:text-mint-400">
+                <Coins size={16} /> ~{est} pts
+              </div>
             </div>
           )}
 
-          <Button disabled={submitting} className="w-full">
+          {error && (
+            <div className="flex items-start gap-2 rounded-xl bg-red-50 dark:bg-red-900/20 px-4 py-3 text-sm text-red-600 dark:text-red-400">
+              <AlertCircle size={16} className="mt-0.5 shrink-0" /> {error}
+            </div>
+          )}
+
+          <Button disabled={submitting || !qrToken} className="w-full">
             <ScanLine size={16} />
             {submitting ? 'Recording…' : 'Submit Recycling'}
           </Button>

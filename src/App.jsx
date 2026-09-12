@@ -18,6 +18,7 @@ import ScanQR from './pages/ScanQR'
 import CleanerDashboard from './pages/CleanerDashboard'
 import ShopDashboard from './pages/ShopDashboard'
 import AdminUsers from './pages/AdminUsers'
+import BinQRPrint from './pages/BinQRPrint'
 import ProtectedRoute from './components/ProtectedRoute'
 
 function ScrollToTop() {
@@ -63,7 +64,8 @@ export default function App() {
         <Route path="/shop" element={<DashPage roles={['shop','admin']}><ShopDashboard /></DashPage>} />
 
         {/* ── Admin ── */}
-        <Route path="/admin/users" element={<DashPage roles={['admin']}><AdminUsers /></DashPage>} />
+        <Route path="/admin/users"  element={<DashPage roles={['admin']}><AdminUsers /></DashPage>} />
+        <Route path="/admin/bin-qr" element={<DashPage roles={['admin']}><BinQRPrint /></DashPage>} />
       </Routes>
     </>
   )

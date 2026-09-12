@@ -41,15 +41,18 @@ def admin_stats(_: TokenData = Depends(require_admin)):
 @router.get("/users")
 def list_users(limit: int = 200, _: TokenData = Depends(require_admin)):
     admin = get_admin_client()
-    # Get profiles (display_name, token_balance)
+
     profiles_r = admin.table("profiles").select("id, display_name, token_balance, created_at").order("created_at", desc=True).limit(limit).execute()
     profiles_map = {row["id"]: row for row in profiles_r.data}
 
-    # Get roles
-    roles_r = admin.table("user_roles").select("user_id, role, shop_name").execute()
+    # Query only guaranteed columns; shop_name may not exist if migration 003 hasn't run
+    try:
+        roles_r = admin.table("user_roles").select("user_id, role, shop_name").execute()
+    except Exception:
+        roles_r = admin.table("user_roles").select("user_id, role").execute()
     roles_map = {row["user_id"]: row for row in roles_r.data}
 
-    # Get emails from Supabase Auth (requires service role key)
+    # Emails from Supabase Auth (requires service role key)
     try:
         auth_users = admin.auth.admin.list_users()
         email_map = {str(u.id): u.email for u in auth_users}

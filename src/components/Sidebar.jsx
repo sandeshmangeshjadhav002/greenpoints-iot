@@ -1,7 +1,7 @@
 import { NavLink } from 'react-router-dom'
 import {
   LayoutDashboard, Trash2, Gift, Trophy, BarChart3,
-  Bell, UserCircle, Recycle, X, Store, Truck, Users,
+  Bell, UserCircle, Recycle, X, Store, Truck, Users, QrCode,
 } from 'lucide-react'
 import { useAuth } from '../context/AuthContext'
 
@@ -33,9 +33,10 @@ const shopNav = [
 // Admins get everything
 const adminNav = [
   ...userNav,
-  { to: '/cleaner',      label: 'Cleaner View',  icon: Truck },
-  { to: '/shop',         label: 'Shop View',      icon: Store },
-  { to: '/admin/users',  label: 'Manage Users',   icon: Users },
+  { to: '/cleaner',      label: 'Cleaner View',   icon: Truck },
+  { to: '/shop',         label: 'Shop View',       icon: Store },
+  { to: '/admin/bin-qr', label: 'Bin QR Codes',    icon: QrCode },
+  { to: '/admin/users',  label: 'Manage Users',    icon: Users },
 ]
 
 const navByRole = { user: userNav, cleaner: cleanerNav, shop: shopNav, admin: adminNav }
