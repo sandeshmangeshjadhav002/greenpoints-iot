@@ -1,0 +1,10 @@
+{
+  "name": "EcoLoop",
+  "short_name": "EcoLoop",
+  "description": "Smart Waste Management & Reward Token System",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#ffffff",
+  "theme_color": "#16A34A",
+  "icons": []
+}

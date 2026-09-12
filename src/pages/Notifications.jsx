@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import {
   Bell, AlertTriangle, Coins, Flame, Gift, WifiOff, Trophy, CheckCircle2, Check,
 } from 'lucide-react'
@@ -6,10 +6,10 @@ import Card from '../components/Card'
 import Badge from '../components/Badge'
 import Breadcrumb from '../components/Breadcrumb'
 import EmptyState from '../components/EmptyState'
-import { notifications as initialNotifications } from '../data/notifications'
+import { useAuth } from '../context/AuthContext'
 import { classNames } from '../utils/helpers'
 
-const iconMap = { AlertTriangle, Coins, Flame, Gift, WifiOff, Trophy, CheckCircle2 }
+const iconMap = { AlertTriangle, Coins, Flame, Gift, WifiOff, Trophy, CheckCircle2, Bell }
 
 const categoryVariant = {
   Alert: 'red',
@@ -21,17 +21,34 @@ const categoryVariant = {
 const filters = ['All', 'Alert', 'Reward', 'Achievement', 'Update']
 
 export default function Notifications() {
-  const [items, setItems] = useState(initialNotifications)
-  const [filter, setFilter] = useState('All')
+  const { apiFetch } = useAuth()
+  const [items, setItems] = useState([])
+  const [loading, setLoading] = useState(true)
+  const [filter, setFilter]   = useState('All')
+
+  const load = useCallback(async () => {
+    try {
+      const res = await apiFetch('/api/dashboard/notifications')
+      setItems(res.data)
+    } catch (err) {
+      console.error(err)
+    } finally {
+      setLoading(false)
+    }
+  }, [apiFetch])
+
+  useEffect(() => { load() }, [load])
 
   const filtered = filter === 'All' ? items : items.filter((n) => n.category === filter)
 
-  function markRead(id) {
+  async function markRead(id) {
     setItems((its) => its.map((n) => (n.id === id ? { ...n, read: true } : n)))
+    try { await apiFetch(`/api/dashboard/notifications/${id}/read`, { method: 'POST' }) } catch { /* best-effort */ }
   }
 
-  function markAllRead() {
+  async function markAllRead() {
     setItems((its) => its.map((n) => ({ ...n, read: true })))
+    try { await apiFetch('/api/dashboard/notifications/read-all', { method: 'POST' }) } catch { /* best-effort */ }
   }
 
   return (
@@ -59,7 +76,7 @@ export default function Notifications() {
               'rounded-full px-4 py-1.5 text-sm font-medium transition-colors',
               filter === f
                 ? 'bg-gradient-to-r from-leaf-500 to-sky-500 text-white shadow-lg'
-                : 'glass hover:bg-leaf-100 dark:hover:bg-leaf-900'
+                : 'glass hover:bg-leaf-100 dark:hover:bg-leaf-900',
             )}
           >
             {f}
@@ -67,7 +84,9 @@ export default function Notifications() {
         ))}
       </div>
 
-      {filtered.length === 0 ? (
+      {loading ? (
+        <EmptyState icon={Bell} title="Loading notifications…" description="Fetching your notifications." />
+      ) : filtered.length === 0 ? (
         <EmptyState icon={Bell} title="You're all caught up" description="No notifications in this category." />
       ) : (
         <div className="space-y-3">
@@ -75,7 +94,10 @@ export default function Notifications() {
             const Icon = iconMap[n.icon] || Bell
             return (
               <Card key={n.id} hover={false} className={classNames('flex items-start gap-4', !n.read && 'ring-1 ring-leaf-300 dark:ring-leaf-700')}>
-                <div className={classNames('flex h-11 w-11 shrink-0 items-center justify-center rounded-xl', !n.read ? 'bg-gradient-to-br from-leaf-500 to-sky-500 text-white' : 'bg-leaf-100 text-leaf-500 dark:bg-leaf-900 dark:text-leaf-400')}>
+                <div className={classNames(
+                  'flex h-11 w-11 shrink-0 items-center justify-center rounded-xl',
+                  !n.read ? 'bg-gradient-to-br from-leaf-500 to-sky-500 text-white' : 'bg-leaf-100 text-leaf-500 dark:bg-leaf-900 dark:text-leaf-400',
+                )}>
                   <Icon size={18} />
                 </div>
                 <div className="min-w-0 flex-1">

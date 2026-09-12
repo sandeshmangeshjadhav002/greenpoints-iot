@@ -14,12 +14,25 @@ import Profile from './pages/Profile'
 import About from './pages/About'
 import Contact from './pages/Contact'
 import Login from './pages/Login'
+import ScanQR from './pages/ScanQR'
+import CleanerDashboard from './pages/CleanerDashboard'
+import ShopDashboard from './pages/ShopDashboard'
+import AdminUsers from './pages/AdminUsers'
 import ProtectedRoute from './components/ProtectedRoute'
 
 function ScrollToTop() {
   const { pathname } = useLocation()
-  useEffect(() => window.scrollTo(0, 0), [pathname])
+  useEffect(() => { window.scrollTo(0, 0) }, [pathname])
   return null
+}
+
+// Wrap a page in DashboardLayout with optional role restriction
+function DashPage({ children, roles }) {
+  return (
+    <ProtectedRoute roles={roles}>
+      <DashboardLayout>{children}</DashboardLayout>
+    </ProtectedRoute>
+  )
 }
 
 export default function App() {
@@ -27,18 +40,30 @@ export default function App() {
     <>
       <ScrollToTop />
       <Routes>
-        <Route path="/" element={<MainLayout><Landing /></MainLayout>} />
-        <Route path="/about" element={<MainLayout><About /></MainLayout>} />
+        {/* ── Public ── */}
+        <Route path="/"        element={<MainLayout><Landing /></MainLayout>} />
+        <Route path="/about"   element={<MainLayout><About /></MainLayout>} />
         <Route path="/contact" element={<MainLayout><Contact /></MainLayout>} />
-        <Route path="/login" element={<Login />} />
+        <Route path="/login"   element={<Login />} />
 
-        <Route path="/dashboard" element={<ProtectedRoute><DashboardLayout><Dashboard /></DashboardLayout></ProtectedRoute>} />
-        <Route path="/smart-bins" element={<ProtectedRoute><DashboardLayout><SmartBins /></DashboardLayout></ProtectedRoute>} />
-        <Route path="/rewards" element={<ProtectedRoute><DashboardLayout><Rewards /></DashboardLayout></ProtectedRoute>} />
-        <Route path="/leaderboard" element={<ProtectedRoute><DashboardLayout><Leaderboard /></DashboardLayout></ProtectedRoute>} />
-        <Route path="/analytics" element={<ProtectedRoute><DashboardLayout><Analytics /></DashboardLayout></ProtectedRoute>} />
-        <Route path="/notifications" element={<ProtectedRoute><DashboardLayout><Notifications /></DashboardLayout></ProtectedRoute>} />
-        <Route path="/profile" element={<ProtectedRoute><DashboardLayout><Profile /></DashboardLayout></ProtectedRoute>} />
+        {/* ── User (and admin) ── */}
+        <Route path="/dashboard"    element={<DashPage roles={['user','admin']}><Dashboard /></DashPage>} />
+        <Route path="/scan"         element={<DashPage roles={['user','admin']}><ScanQR /></DashPage>} />
+        <Route path="/smart-bins"   element={<DashPage roles={['user','admin']}><SmartBins /></DashPage>} />
+        <Route path="/rewards"      element={<DashPage roles={['user','admin']}><Rewards /></DashPage>} />
+        <Route path="/leaderboard"  element={<DashPage roles={['user','admin']}><Leaderboard /></DashPage>} />
+        <Route path="/analytics"    element={<DashPage roles={['user','admin']}><Analytics /></DashPage>} />
+        <Route path="/notifications" element={<DashPage><Notifications /></DashPage>} />
+        <Route path="/profile"      element={<DashPage><Profile /></DashPage>} />
+
+        {/* ── Cleaner ── */}
+        <Route path="/cleaner" element={<DashPage roles={['cleaner','admin']}><CleanerDashboard /></DashPage>} />
+
+        {/* ── Shop ── */}
+        <Route path="/shop" element={<DashPage roles={['shop','admin']}><ShopDashboard /></DashPage>} />
+
+        {/* ── Admin ── */}
+        <Route path="/admin/users" element={<DashPage roles={['admin']}><AdminUsers /></DashPage>} />
       </Routes>
     </>
   )

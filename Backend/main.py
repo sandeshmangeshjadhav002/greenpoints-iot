@@ -4,10 +4,10 @@ from typing import Any
 from fastapi import FastAPI, Request, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
-from pydantic import BaseModel, Field
 
 from config import settings
 from database import get_admin_client
+from schemas import ContactMessageIn
 
 
 class ConnectionManager:
@@ -70,7 +70,7 @@ def health_check() -> dict[str, str]:
     return {"status": "ok", "service": "ecoloop-api", "version": "1.0.0"}
 
 
-from routers import auth, users, devices, bins, waste, points, dashboard, admin, ai
+from routers import auth, users, devices, bins, waste, points, dashboard, admin, ai, shop, cleaner
 
 app.include_router(auth.router)
 app.include_router(users.router)
@@ -81,35 +81,12 @@ app.include_router(points.router)
 app.include_router(dashboard.router)
 app.include_router(admin.router)
 app.include_router(ai.router)
-
-
-<<<<<<< Updated upstream
-@app.post("/api/auth/signup", tags=["auth"])
-def sign_up(credentials: AuthCredentials) -> dict[str, Any]:
-    try:
-        return session_response(supabase.auth.sign_up({"email": credentials.email, "password": credentials.password}))
-    except Exception as error:
-        raise HTTPException(status_code=400, detail=str(error)) from error
-
-
-@app.post("/api/auth/login", tags=["auth"])
-def sign_in(credentials: AuthCredentials) -> dict[str, Any]:
-    try:
-        return session_response(supabase.auth.sign_in_with_password({"email": credentials.email, "password": credentials.password}))
-    except Exception as error:
-        raise HTTPException(status_code=401, detail="Invalid email or password") from error
-=======
-class ContactMessageIn(BaseModel):
-    name: str = Field(min_length=1, max_length=120)
-    email: str = Field(min_length=3, max_length=320)
-    subject: str = Field(min_length=1, max_length=200)
-    message: str = Field(min_length=1, max_length=5000)
->>>>>>> Stashed changes
+app.include_router(shop.router)
+app.include_router(cleaner.router)
 
 
 @app.post("/api/contact", status_code=201, tags=["contact"])
 def create_contact_message(message: ContactMessageIn):
-    # Contact messages are written by the server, not directly by anonymous clients.
     get_admin_client().table("contact_messages").insert(message.model_dump()).execute()
     return {"success": True, "data": {"received": True}}
 

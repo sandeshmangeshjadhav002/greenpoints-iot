@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { Coins, Gift, CheckCircle2 } from 'lucide-react'
 import Card from '../components/Card'
 import Badge from '../components/Badge'
@@ -6,16 +6,54 @@ import Button from '../components/Button'
 import Modal from '../components/Modal'
 import Breadcrumb from '../components/Breadcrumb'
 import EmptyState from '../components/EmptyState'
-import { rewards } from '../data/rewards'
-import { currentUser } from '../data/users'
+import { useAuth } from '../context/AuthContext'
 
 export default function Rewards() {
+  const { apiFetch } = useAuth()
+  const [rewards, setRewards]   = useState([])
+  const [balance, setBalance]   = useState(0)
+  const [loading, setLoading]   = useState(true)
   const [selected, setSelected] = useState(null)
   const [redeemed, setRedeemed] = useState(false)
+  const [redeeming, setRedeeming] = useState(false)
+  const [error, setError]       = useState('')
+
+  useEffect(() => {
+    let active = true
+    Promise.all([
+      apiFetch('/api/dashboard/rewards').then((r) => r.data),
+      apiFetch('/api/users/me/points').then((r) => r.data.balance),
+    ]).then(([rws, bal]) => {
+      if (!active) return
+      setRewards(rws)
+      setBalance(bal)
+    }).catch(console.error)
+      .finally(() => { if (active) setLoading(false) })
+    return () => { active = false }
+  }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
   function openReward(reward) {
     setSelected(reward)
     setRedeemed(false)
+    setError('')
+  }
+
+  async function confirmRedeem() {
+    if (!selected) return
+    setRedeeming(true)
+    setError('')
+    try {
+      const res = await apiFetch('/api/dashboard/rewards/redeem', {
+        method: 'POST',
+        body: JSON.stringify({ reward_id: selected.id }),
+      })
+      setBalance(res.data.new_balance)
+      setRedeemed(true)
+    } catch (err) {
+      setError(err.message)
+    } finally {
+      setRedeeming(false)
+    }
   }
 
   return (
@@ -29,49 +67,59 @@ export default function Rewards() {
         </div>
         <div className="glass flex items-center gap-2 rounded-full px-4 py-2">
           <Coins size={18} className="text-leaf-500" />
-          <span className="font-mono font-semibold">{currentUser.tokens.toLocaleString()} tokens</span>
+          <span className="font-mono font-semibold">{balance.toLocaleString()} tokens</span>
         </div>
       </div>
 
-      {rewards.length === 0 ? (
+      {loading ? (
+        <EmptyState icon={Gift} title="Loading rewards…" description="Fetching the reward catalog." />
+      ) : rewards.length === 0 ? (
         <EmptyState icon={Gift} title="No rewards available" description="Available rewards will appear here when the catalog is connected." />
       ) : (
-      <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-        {rewards.map((r) => {
-          const affordable = currentUser.tokens >= r.tokens
-          return (
-            <Card key={r.id} className="flex flex-col overflow-hidden p-0">
-              <div className="relative h-40 w-full overflow-hidden">
-                <img src={r.image} alt={r.name} className="h-full w-full object-cover transition-transform duration-500 hover:scale-110" />
-                <Badge variant="neutral" className="absolute left-3 top-3 bg-white/90 dark:bg-leaf-950/90">{r.category}</Badge>
-              </div>
-              <div className="flex flex-1 flex-col p-5">
-                <h3 className="font-display font-semibold">{r.name}</h3>
-                <p className="mt-1.5 flex-1 text-xs text-leaf-700/70 dark:text-leaf-200/60">{r.description}</p>
-                <div className="mt-4 flex items-center justify-between">
-                  <span className="flex items-center gap-1 font-mono text-sm font-bold text-leaf-600 dark:text-mint-400">
-                    <Coins size={14} /> {r.tokens}
-                  </span>
-                  <Button
-                    variant={affordable ? 'primary' : 'secondary'}
-                    className="!px-4 !py-2 text-xs"
-                    disabled={!affordable}
-                    onClick={() => openReward(r)}
-                  >
-                    {affordable ? 'Redeem' : 'Locked'}
-                  </Button>
+        <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+          {rewards.map((r) => {
+            const affordable = balance >= r.tokens
+            return (
+              <Card key={r.id} className="flex flex-col overflow-hidden p-0">
+                <div className="relative h-40 w-full overflow-hidden bg-leaf-50 dark:bg-leaf-900">
+                  {r.image
+                    ? <img src={r.image} alt={r.name} className="h-full w-full object-cover transition-transform duration-500 hover:scale-110" />
+                    : <div className="flex h-full w-full items-center justify-center"><Gift size={40} className="text-leaf-300 dark:text-leaf-700" /></div>
+                  }
+                  {r.category && <Badge variant="neutral" className="absolute left-3 top-3 bg-white/90 dark:bg-leaf-950/90">{r.category}</Badge>}
+                  {r.stock !== null && r.stock !== undefined && r.stock <= 5 && (
+                    <span className="absolute right-3 top-3 rounded-full bg-red-100 dark:bg-red-900/40 px-2 py-0.5 text-[10px] font-semibold text-red-600 dark:text-red-300">
+                      {r.stock === 0 ? 'Out of stock' : `${r.stock} left`}
+                    </span>
+                  )}
                 </div>
-              </div>
-            </Card>
-          )
-        })}
-      </div>
+                <div className="flex flex-1 flex-col p-5">
+                  <h3 className="font-display font-semibold">{r.name}</h3>
+                  <p className="mt-1.5 flex-1 text-xs text-leaf-700/70 dark:text-leaf-200/60">{r.description}</p>
+                  <div className="mt-4 flex items-center justify-between">
+                    <span className="flex items-center gap-1 font-mono text-sm font-bold text-leaf-600 dark:text-mint-400">
+                      <Coins size={14} /> {r.tokens}
+                    </span>
+                    <Button
+                      variant={affordable && r.stock !== 0 ? 'primary' : 'secondary'}
+                      className="!px-4 !py-2 text-xs"
+                      disabled={!affordable || r.stock === 0}
+                      onClick={() => openReward(r)}
+                    >
+                      {r.stock === 0 ? 'Out of stock' : affordable ? 'Redeem' : 'Locked'}
+                    </Button>
+                  </div>
+                </div>
+              </Card>
+            )
+          })}
+        </div>
       )}
 
       <Modal open={!!selected} onClose={() => setSelected(null)} title={redeemed ? 'Redeemed!' : 'Confirm Redemption'}>
         {selected && !redeemed && (
           <div>
-            <img src={selected.image} alt={selected.name} className="mb-4 h-36 w-full rounded-xl object-cover" />
+            {selected.image && <img src={selected.image} alt={selected.name} className="mb-4 h-36 w-full rounded-xl object-cover" />}
             <p className="font-display font-semibold">{selected.name}</p>
             <p className="mt-1 text-sm text-leaf-700/70 dark:text-leaf-200/60">{selected.description}</p>
             <div className="mt-4 flex items-center justify-between rounded-xl bg-leaf-50 dark:bg-leaf-900 px-4 py-3">
@@ -80,8 +128,9 @@ export default function Rewards() {
                 <Coins size={14} /> {selected.tokens}
               </span>
             </div>
-            <Button className="mt-5 w-full" onClick={() => setRedeemed(true)}>
-              <Gift size={16} /> Confirm Redeem
+            {error && <p className="mt-3 text-sm text-red-500">{error}</p>}
+            <Button className="mt-5 w-full" disabled={redeeming} onClick={confirmRedeem}>
+              <Gift size={16} /> {redeeming ? 'Processing…' : 'Confirm Redeem'}
             </Button>
           </div>
         )}
@@ -90,11 +139,9 @@ export default function Rewards() {
             <CheckCircle2 size={48} className="mb-3 text-leaf-500" />
             <p className="font-display font-semibold">{selected.name} redeemed!</p>
             <p className="mt-1 text-sm text-leaf-700/70 dark:text-leaf-200/60">
-              This is a UI-only demo — no tokens were actually deducted.
+              New balance: <span className="font-semibold">{balance.toLocaleString()} tokens</span>
             </p>
-            <Button variant="secondary" className="mt-5" onClick={() => setSelected(null)}>
-              Close
-            </Button>
+            <Button variant="secondary" className="mt-5" onClick={() => setSelected(null)}>Close</Button>
           </div>
         )}
       </Modal>

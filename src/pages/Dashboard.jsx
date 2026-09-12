@@ -1,3 +1,4 @@
+import { useEffect, useState, useCallback } from 'react'
 import {
   Coins, Recycle, Leaf, Flame, Sparkles, Award, Cpu, Users, Trophy,
 } from 'lucide-react'
@@ -10,9 +11,7 @@ import StatCard from '../components/StatCard'
 import { RadialProgress, ProgressBar } from '../components/ProgressBar'
 import Badge from '../components/Badge'
 import EmptyState from '../components/EmptyState'
-import { currentUser } from '../data/users'
-import { weeklyActivity, wasteDistribution } from '../data/analytics'
-import { recentActivity, badges } from '../data/history'
+import { useAuth } from '../context/AuthContext'
 
 const badgeIconMap = { Sparkles, Flame, Award, Cpu, Users, Trophy }
 
@@ -23,62 +22,96 @@ const typeVariant = {
   'E-Waste': 'amber',
 }
 
+function useApi(fetchFn) {
+  const [data, setData]   = useState(null)
+  const [loading, setLoading] = useState(true)
+  useEffect(() => {
+    let active = true
+    fetchFn().then((d) => { if (active) setData(d) }).catch(console.error).finally(() => { if (active) setLoading(false) })
+    return () => { active = false }
+  }, []) // eslint-disable-line react-hooks/exhaustive-deps
+  return { data, loading }
+}
+
 export default function Dashboard() {
+  const { apiFetch } = useAuth()
+
+  const summary  = useApi(() => apiFetch('/api/dashboard/summary').then((r) => r.data))
+  const weekly   = useApi(() => apiFetch('/api/dashboard/weekly-activity').then((r) => r.data))
+  const wasteDist = useApi(() => apiFetch('/api/dashboard/waste-distribution').then((r) => r.data))
+  const activity  = useApi(() => apiFetch('/api/dashboard/recent-activity').then((r) => r.data))
+  const badges    = useApi(() => apiFetch('/api/dashboard/badges').then((r) => r.data))
+
+  const s   = summary.data   || {}
+  const act = activity.data  || []
+  const bdg = badges.data    || []
+  const wa  = weekly.data    || []
+  const wd  = wasteDist.data || []
+
   return (
     <div className="mx-auto max-w-7xl space-y-6">
       {/* Welcome */}
       <Card className="flex flex-col items-start justify-between gap-6 sm:flex-row sm:items-center">
         <div className="flex items-center gap-4">
           <div>
-            <h1 className="font-display text-xl font-bold sm:text-2xl">Welcome back, {currentUser.name.split(' ')[0]} 👋</h1>
+            <h1 className="font-display text-xl font-bold sm:text-2xl">
+              Welcome back, {s.name?.split(' ')[0] || '…'} 👋
+            </h1>
             <p className="text-sm text-leaf-700/70 dark:text-leaf-200/60">
-              You're on a <span className="font-semibold text-leaf-600 dark:text-mint-400">{currentUser.streakDays}-day</span> recycling streak. Keep it going!
+              You're on a{' '}
+              <span className="font-semibold text-leaf-600 dark:text-mint-400">
+                {s.streakDays ?? 0}-day
+              </span>{' '}
+              recycling streak. Keep it going!
             </p>
           </div>
         </div>
-        {currentUser.level && <Badge variant="leaf" className="px-4 py-2 text-sm">{currentUser.level}</Badge>}
+        {s.level && <Badge variant="leaf" className="px-4 py-2 text-sm">{s.level}</Badge>}
       </Card>
 
       {/* Stat cards */}
       <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-4">
-        <StatCard icon={Coins} label="Token Balance" value={currentUser.tokens} trend={0} accent="leaf" />
-        <StatCard icon={Recycle} label="Total Waste Recycled (kg)" value={currentUser.totalWasteKg} decimals={1} trend={0} accent="sky" />
-        <StatCard icon={Leaf} label="Carbon Emissions Saved (kg)" value={currentUser.co2SavedKg} decimals={1} trend={0} accent="leaf" />
-        <StatCard icon={Flame} label="Recycling Streak (days)" value={currentUser.streakDays} trend={0} accent="amber" />
+        <StatCard icon={Coins}  label="Token Balance"              value={s.tokens ?? 0}        trend={0} accent="leaf" />
+        <StatCard icon={Recycle} label="Total Waste Recycled (kg)" value={s.totalWasteKg ?? 0}  decimals={1} trend={0} accent="sky" />
+        <StatCard icon={Leaf}   label="Carbon Emissions Saved (kg)" value={s.co2SavedKg ?? 0}   decimals={1} trend={0} accent="leaf" />
+        <StatCard icon={Flame}  label="Recycling Streak (days)"     value={s.streakDays ?? 0}    trend={0} accent="amber" />
       </div>
 
       <div className="grid grid-cols-1 gap-5 lg:grid-cols-3">
-        {/* Environmental impact + progress */}
+        {/* Environmental impact */}
         <Card className="flex flex-col items-center justify-center text-center">
           <p className="mb-3 font-display text-sm font-semibold text-leaf-700/70 dark:text-leaf-200/60">Environmental Impact</p>
-          <RadialProgress value={0} colorClass="text-leaf-500" label="0" sublabel="Eco Score" size={120} />
-          <p className="mt-4 text-xs text-leaf-700/60 dark:text-leaf-200/50">
-            No impact data is available yet.
+          <RadialProgress
+            value={s.levelProgress ?? 0}
+            colorClass="text-leaf-500"
+            label={`${s.levelProgress ?? 0}%`}
+            sublabel="Eco Score"
+            size={120}
+          />
+          <p className="mt-3 text-xs text-leaf-700/60 dark:text-leaf-200/50">
+            Level: <span className="font-semibold">{s.level || 'Bronze'}</span>
           </p>
         </Card>
 
         {/* Progress to next reward */}
         <Card className="lg:col-span-2">
           <div className="mb-4 flex items-center justify-between">
-            <p className="font-display text-sm font-semibold">Progress to next reward</p>
-            <span className="font-mono text-xs text-leaf-700/60 dark:text-leaf-200/50">{currentUser.levelProgress}%</span>
+            <p className="font-display text-sm font-semibold">Progress to next level</p>
+            <span className="font-mono text-xs text-leaf-700/60 dark:text-leaf-200/50">{s.levelProgress ?? 0}%</span>
           </div>
-          <ProgressBar value={currentUser.levelProgress} colorClass="from-leaf-500 to-sky-500" showValue={false} />
-          <p className="mt-3 text-xs text-leaf-700/60 dark:text-leaf-200/50">
-            Recycling progress will be shown here when available.
-          </p>
+          <ProgressBar value={s.levelProgress ?? 0} colorClass="from-leaf-500 to-sky-500" showValue={false} />
           <div className="mt-5 grid grid-cols-3 gap-3 text-center">
             <div>
-              <p className="font-display text-lg font-bold">0</p>
-              <p className="text-[11px] text-leaf-700/60 dark:text-leaf-200/50">Tokens to next tier</p>
+              <p className="font-display text-lg font-bold">{(s.tokens ?? 0).toLocaleString()}</p>
+              <p className="text-[11px] text-leaf-700/60 dark:text-leaf-200/50">Tokens</p>
             </div>
             <div>
-              <p className="font-display text-lg font-bold">—</p>
+              <p className="font-display text-lg font-bold">{s.rank ?? '—'}</p>
               <p className="text-[11px] text-leaf-700/60 dark:text-leaf-200/50">City rank</p>
             </div>
             <div>
-              <p className="font-display text-lg font-bold">—</p>
-              <p className="text-[11px] text-leaf-700/60 dark:text-leaf-200/50">Next multiplier</p>
+              <p className="font-display text-lg font-bold">{s.disposalCount ?? 0}</p>
+              <p className="text-[11px] text-leaf-700/60 dark:text-leaf-200/50">Disposals</p>
             </div>
           </div>
         </Card>
@@ -89,7 +122,7 @@ export default function Dashboard() {
         <Card className="lg:col-span-2">
           <p className="mb-4 font-display text-sm font-semibold">Weekly Recycling Activity (kg)</p>
           <ResponsiveContainer width="100%" height={260}>
-            <AreaChart data={weeklyActivity}>
+            <AreaChart data={wa}>
               <defs>
                 <linearGradient id="kgGradient" x1="0" y1="0" x2="0" y2="1">
                   <stop offset="0%" stopColor="#16A34A" stopOpacity={0.5} />
@@ -109,10 +142,8 @@ export default function Dashboard() {
           <p className="mb-4 font-display text-sm font-semibold">Waste Type Distribution</p>
           <ResponsiveContainer width="100%" height={260}>
             <PieChart>
-              <Pie data={wasteDistribution} dataKey="value" nameKey="name" innerRadius={55} outerRadius={85} paddingAngle={3}>
-                {wasteDistribution.map((entry, i) => (
-                  <Cell key={i} fill={entry.color} stroke="none" />
-                ))}
+              <Pie data={wd} dataKey="value" nameKey="name" innerRadius={55} outerRadius={85} paddingAngle={3}>
+                {wd.map((entry, i) => <Cell key={i} fill={entry.color} stroke="none" />)}
               </Pie>
               <Tooltip contentStyle={{ borderRadius: 12, border: 'none', fontSize: 12 }} />
               <Legend iconType="circle" wrapperStyle={{ fontSize: 11 }} />
@@ -124,7 +155,7 @@ export default function Dashboard() {
       <Card>
         <p className="mb-4 font-display text-sm font-semibold">Token Earnings This Week</p>
         <ResponsiveContainer width="100%" height={220}>
-          <BarChart data={weeklyActivity}>
+          <BarChart data={wa}>
             <CartesianGrid strokeDasharray="3 3" stroke="#0284C7" strokeOpacity={0.1} vertical={false} />
             <XAxis dataKey="day" tick={{ fontSize: 12 }} axisLine={false} tickLine={false} />
             <YAxis tick={{ fontSize: 12 }} axisLine={false} tickLine={false} />
@@ -138,11 +169,13 @@ export default function Dashboard() {
         {/* Recent activity */}
         <Card className="lg:col-span-2">
           <p className="mb-4 font-display text-sm font-semibold">Recent Recycling Activity</p>
-          {recentActivity.length === 0 ? (
+          {activity.loading ? (
+            <p className="text-sm text-leaf-700/50 dark:text-leaf-200/40">Loading…</p>
+          ) : act.length === 0 ? (
             <EmptyState icon={Recycle} title="No activity yet" description="Your recycling drops will appear here." />
           ) : (
             <div className="space-y-3">
-              {recentActivity.map((a) => (
+              {act.map((a) => (
                 <div key={a.id} className="flex items-center justify-between rounded-xl border border-leaf-100 dark:border-leaf-900 px-4 py-3">
                   <div className="flex items-center gap-3">
                     <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-leaf-100 dark:bg-leaf-900 text-leaf-600 dark:text-mint-400">
@@ -166,11 +199,13 @@ export default function Dashboard() {
         {/* Achievement badges */}
         <Card>
           <p className="mb-4 font-display text-sm font-semibold">Achievement Badges</p>
-          {badges.length === 0 ? (
+          {badges.loading ? (
+            <p className="text-sm text-leaf-700/50 dark:text-leaf-200/40">Loading…</p>
+          ) : bdg.length === 0 ? (
             <EmptyState icon={Award} title="No badges yet" description="Earn badges by hitting recycling milestones." />
           ) : (
             <div className="grid grid-cols-3 gap-3">
-              {badges.map((b) => {
+              {bdg.map((b) => {
                 const Icon = badgeIconMap[b.icon] || Award
                 return (
                   <div

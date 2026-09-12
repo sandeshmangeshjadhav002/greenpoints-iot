@@ -18,9 +18,23 @@ export default function Login() {
     event.preventDefault(); setBusy(true); setError(''); setMessage('')
     try {
       const result = await authenticate(mode === 'login' ? 'login' : 'signup', email, password)
-      if (!result.accessToken) setMessage('Account created. Confirm your email, then sign in.')
-      else navigate(location.state?.from || '/dashboard', { replace: true })
-    } catch (requestError) { setError(requestError.message) } finally { setBusy(false) }
+      if (!result.accessToken) {
+        // signup with email confirmation required, or signup returned a message
+        setMode('login')
+        setMessage(result.message || 'Account created! Confirm your email, then sign in.')
+      } else {
+        navigate(location.state?.from || '/dashboard', { replace: true })
+      }
+    } catch (requestError) {
+      // Surface confirmation errors differently so the user knows what to do
+      const msg = requestError.message || ''
+      if (msg.toLowerCase().includes('not confirmed') || msg.toLowerCase().includes('confirmation')) {
+        setError('') 
+        setMessage('Please confirm your email first — check your inbox for the link from Supabase, then sign in.')
+      } else {
+        setError(msg)
+      }
+    } finally { setBusy(false) }
   }
 
   return (

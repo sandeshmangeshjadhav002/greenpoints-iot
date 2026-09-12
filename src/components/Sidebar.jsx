@@ -1,31 +1,56 @@
 import { NavLink } from 'react-router-dom'
 import {
-  LayoutDashboard,
-  Trash2,
-  Gift,
-  Trophy,
-  BarChart3,
-  Bell,
-  UserCircle,
-  Recycle,
-  X,
+  LayoutDashboard, Trash2, Gift, Trophy, BarChart3,
+  Bell, UserCircle, Recycle, X, Store, Truck, Users,
 } from 'lucide-react'
+import { useAuth } from '../context/AuthContext'
 
-const navItems = [
-  { to: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
-  { to: '/smart-bins', label: 'Smart Bins', icon: Trash2 },
-  { to: '/rewards', label: 'Rewards', icon: Gift },
-  { to: '/leaderboard', label: 'Leaderboard', icon: Trophy },
-  { to: '/analytics', label: 'Analytics', icon: BarChart3 },
-  { to: '/notifications', label: 'Notifications', icon: Bell },
-  { to: '/profile', label: 'Profile', icon: UserCircle },
+// User nav — no Scan QR tab (scanning happens from bin detail / QR page directly)
+const userNav = [
+  { to: '/dashboard',      label: 'Dashboard',      icon: LayoutDashboard },
+  { to: '/smart-bins',     label: 'Smart Bins',      icon: Trash2 },
+  { to: '/rewards',        label: 'Rewards',         icon: Gift },
+  { to: '/leaderboard',    label: 'Leaderboard',     icon: Trophy },
+  { to: '/analytics',      label: 'Analytics',       icon: BarChart3 },
+  { to: '/notifications',  label: 'Notifications',   icon: Bell },
+  { to: '/profile',        label: 'Profile',         icon: UserCircle },
 ]
 
+// Nav items for cleaners
+const cleanerNav = [
+  { to: '/cleaner',        label: 'Bin Status',     icon: Truck },
+  { to: '/notifications',  label: 'Notifications',  icon: Bell },
+  { to: '/profile',        label: 'Profile',        icon: UserCircle },
+]
+
+// Nav items for shops
+const shopNav = [
+  { to: '/shop',           label: 'Redemptions',    icon: Store },
+  { to: '/notifications',  label: 'Notifications',  icon: Bell },
+  { to: '/profile',        label: 'Profile',        icon: UserCircle },
+]
+
+// Admins get everything
+const adminNav = [
+  ...userNav,
+  { to: '/cleaner',      label: 'Cleaner View',  icon: Truck },
+  { to: '/shop',         label: 'Shop View',      icon: Store },
+  { to: '/admin/users',  label: 'Manage Users',   icon: Users },
+]
+
+const navByRole = { user: userNav, cleaner: cleanerNav, shop: shopNav, admin: adminNav }
+
 export default function Sidebar({ open, onClose }) {
+  const { role } = useAuth()
+  const navItems = navByRole[role] ?? userNav
+
   return (
     <>
       {open && (
-        <div className="fixed inset-0 z-40 bg-leaf-950/50 backdrop-blur-sm lg:hidden" onClick={onClose} />
+        <div
+          className="fixed inset-0 z-40 bg-leaf-950/50 backdrop-blur-sm lg:hidden"
+          onClick={onClose}
+        />
       )}
       <aside
         className={`fixed inset-y-0 left-0 z-50 flex w-64 flex-col border-r border-leaf-200 dark:border-leaf-900 bg-white/80 dark:bg-leaf-950/90 backdrop-blur-xl transition-transform duration-300 lg:sticky lg:top-0 lg:h-screen lg:translate-x-0 ${
@@ -44,10 +69,10 @@ export default function Sidebar({ open, onClose }) {
           </button>
         </div>
 
-        <nav className="flex-1 space-y-1 px-3">
+        <nav className="flex-1 space-y-1 overflow-y-auto px-3">
           {navItems.map((item) => (
             <NavLink
-              key={item.to}
+              key={item.to + item.label}
               to={item.to}
               onClick={onClose}
               className={({ isActive }) =>
@@ -65,9 +90,12 @@ export default function Sidebar({ open, onClose }) {
         </nav>
 
         <div className="glass m-3 rounded-2xl p-4 text-center">
-          <p className="font-display text-sm font-semibold">ESP32 Ready</p>
+          <p className="font-display text-sm font-semibold capitalize">{role} account</p>
           <p className="mt-1 text-xs text-leaf-700/60 dark:text-leaf-200/50">
-            Frontend built to plug into live hardware sensors.
+            {role === 'cleaner' && 'Field collection mode'}
+            {role === 'shop'    && 'Reward fulfillment mode'}
+            {role === 'admin'   && 'Full admin access'}
+            {role === 'user'    && 'ESP32-powered smart bins'}
           </p>
         </div>
       </aside>

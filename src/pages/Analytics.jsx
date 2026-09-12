@@ -1,19 +1,54 @@
+import { useEffect, useState } from 'react'
 import {
   ResponsiveContainer, LineChart, Line, AreaChart, Area, BarChart, Bar,
   XAxis, YAxis, CartesianGrid, Tooltip, Legend, PieChart, Pie, Cell,
 } from 'recharts'
 import Card from '../components/Card'
 import Breadcrumb from '../components/Breadcrumb'
-import {
-  collectionTrends, categoryBreakdown, tokenDistribution, environmentalImpact,
-  userGrowth, binUsage, wasteDistribution,
-} from '../data/analytics'
+import EmptyState from '../components/EmptyState'
+import { BarChart3 } from 'lucide-react'
+import { useAuth } from '../context/AuthContext'
+
+function useAdminData(path, apiFetch) {
+  const [data, setData] = useState([])
+  useEffect(() => {
+    apiFetch(path).then((r) => setData(r.data)).catch(() => setData([]))
+  }, []) // eslint-disable-line react-hooks/exhaustive-deps
+  return data
+}
 
 export default function Analytics() {
+  const { apiFetch, role } = useAuth()
+  const isAdmin = role === 'admin'
+
+  const collectionTrends  = useAdminData('/api/dashboard/collection-trends',  apiFetch)
+  const categoryBreakdown = useAdminData('/api/dashboard/category-breakdown',  apiFetch)
+  const tokenDist         = useAdminData('/api/dashboard/token-distribution',  apiFetch)
+  const envImpact         = useAdminData('/api/dashboard/environmental-impact', apiFetch)
+  const userGrowth        = useAdminData('/api/dashboard/user-growth',         apiFetch)
+  const binUsage          = useAdminData('/api/dashboard/bin-usage',           apiFetch)
+
+  const [wasteDist, setWasteDist] = useState([])
+  useEffect(() => {
+    apiFetch('/api/dashboard/waste-distribution').then((r) => setWasteDist(r.data)).catch(() => {})
+  }, []) // eslint-disable-line react-hooks/exhaustive-deps
+
+  if (!isAdmin) {
+    return (
+      <div className="mx-auto max-w-7xl">
+        <Breadcrumb items={[{ label: 'Analytics' }]} />
+        <EmptyState
+          icon={BarChart3}
+          title="Admin analytics"
+          description="City-wide analytics charts are visible to administrators only."
+        />
+      </div>
+    )
+  }
+
   return (
     <div className="mx-auto max-w-7xl">
       <Breadcrumb items={[{ label: 'Analytics' }]} />
-
       <div className="mb-6">
         <h1 className="font-display text-2xl font-bold">Analytics Dashboard</h1>
         <p className="text-sm text-leaf-700/70 dark:text-leaf-200/60">City-wide trends and platform performance</p>
@@ -55,7 +90,7 @@ export default function Analytics() {
         <Card>
           <p className="mb-4 font-display text-sm font-semibold">Monthly Token Distribution</p>
           <ResponsiveContainer width="100%" height={260}>
-            <BarChart data={tokenDistribution}>
+            <BarChart data={tokenDist}>
               <CartesianGrid strokeDasharray="3 3" strokeOpacity={0.1} vertical={false} />
               <XAxis dataKey="month" tick={{ fontSize: 11 }} axisLine={false} tickLine={false} />
               <YAxis tick={{ fontSize: 11 }} axisLine={false} tickLine={false} />
@@ -68,15 +103,15 @@ export default function Analytics() {
         <Card>
           <p className="mb-4 font-display text-sm font-semibold">Environmental Impact</p>
           <ResponsiveContainer width="100%" height={260}>
-            <LineChart data={environmentalImpact}>
+            <LineChart data={envImpact}>
               <CartesianGrid strokeDasharray="3 3" strokeOpacity={0.1} vertical={false} />
               <XAxis dataKey="month" tick={{ fontSize: 11 }} axisLine={false} tickLine={false} />
               <YAxis tick={{ fontSize: 11 }} axisLine={false} tickLine={false} />
               <Tooltip contentStyle={{ borderRadius: 12, border: 'none', fontSize: 12 }} />
               <Legend wrapperStyle={{ fontSize: 11 }} />
-              <Line type="monotone" dataKey="co2" name="CO₂ (kg)" stroke="#16A34A" strokeWidth={2.5} dot={false} />
+              <Line type="monotone" dataKey="co2"   name="CO₂ (kg)"  stroke="#16A34A" strokeWidth={2.5} dot={false} />
               <Line type="monotone" dataKey="water" name="Water (L)" stroke="#0284C7" strokeWidth={2.5} dot={false} />
-              <Line type="monotone" dataKey="trees" name="Trees" stroke="#f59e0b" strokeWidth={2.5} dot={false} />
+              <Line type="monotone" dataKey="trees" name="Trees"     stroke="#f59e0b" strokeWidth={2.5} dot={false} />
             </LineChart>
           </ResponsiveContainer>
         </Card>
@@ -119,16 +154,14 @@ export default function Analytics() {
         <div className="flex flex-col items-center gap-6 sm:flex-row">
           <ResponsiveContainer width="100%" height={260} className="sm:!w-1/2">
             <PieChart>
-              <Pie data={wasteDistribution} dataKey="value" nameKey="name" outerRadius={95} paddingAngle={3}>
-                {wasteDistribution.map((entry, i) => (
-                  <Cell key={i} fill={entry.color} stroke="none" />
-                ))}
+              <Pie data={wasteDist} dataKey="value" nameKey="name" outerRadius={95} paddingAngle={3}>
+                {wasteDist.map((entry, i) => <Cell key={i} fill={entry.color} stroke="none" />)}
               </Pie>
               <Tooltip contentStyle={{ borderRadius: 12, border: 'none', fontSize: 12 }} />
             </PieChart>
           </ResponsiveContainer>
           <div className="grid flex-1 grid-cols-2 gap-4">
-            {wasteDistribution.map((w) => (
+            {wasteDist.map((w) => (
               <div key={w.name} className="flex items-center gap-2">
                 <span className="h-3 w-3 rounded-full" style={{ background: w.color }} />
                 <span className="text-sm">{w.name}</span>
