@@ -9,6 +9,7 @@ import Card from '../components/Card'
 import StatCard from '../components/StatCard'
 import { RadialProgress, ProgressBar } from '../components/ProgressBar'
 import Badge from '../components/Badge'
+import EmptyState from '../components/EmptyState'
 import { currentUser } from '../data/users'
 import { weeklyActivity, wasteDistribution } from '../data/analytics'
 import { recentActivity, badges } from '../data/history'
@@ -137,49 +138,57 @@ export default function Dashboard() {
         {/* Recent activity */}
         <Card className="lg:col-span-2">
           <p className="mb-4 font-display text-sm font-semibold">Recent Recycling Activity</p>
-          <div className="space-y-3">
-            {recentActivity.map((a) => (
-              <div key={a.id} className="flex items-center justify-between rounded-xl border border-leaf-100 dark:border-leaf-900 px-4 py-3">
-                <div className="flex items-center gap-3">
-                  <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-leaf-100 dark:bg-leaf-900 text-leaf-600 dark:text-mint-400">
-                    <Recycle size={16} />
-                  </div>
-                  <div>
-                    <div className="flex items-center gap-2">
-                      <p className="text-sm font-medium">{a.bin}</p>
-                      <Badge variant={typeVariant[a.type]}>{a.type}</Badge>
+          {recentActivity.length === 0 ? (
+            <EmptyState icon={Recycle} title="No activity yet" description="Your recycling drops will appear here." />
+          ) : (
+            <div className="space-y-3">
+              {recentActivity.map((a) => (
+                <div key={a.id} className="flex items-center justify-between rounded-xl border border-leaf-100 dark:border-leaf-900 px-4 py-3">
+                  <div className="flex items-center gap-3">
+                    <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-leaf-100 dark:bg-leaf-900 text-leaf-600 dark:text-mint-400">
+                      <Recycle size={16} />
                     </div>
-                    <p className="text-xs text-leaf-700/60 dark:text-leaf-200/50">{a.date} · {a.kg}kg</p>
+                    <div>
+                      <div className="flex items-center gap-2">
+                        <p className="text-sm font-medium">{a.bin}</p>
+                        <Badge variant={typeVariant[a.type]}>{a.type}</Badge>
+                      </div>
+                      <p className="text-xs text-leaf-700/60 dark:text-leaf-200/50">{a.date} · {a.kg}kg</p>
+                    </div>
                   </div>
+                  <p className="font-mono text-sm font-semibold text-leaf-600 dark:text-mint-400">+{a.tokens}</p>
                 </div>
-                <p className="font-mono text-sm font-semibold text-leaf-600 dark:text-mint-400">+{a.tokens}</p>
-              </div>
-            ))}
-          </div>
+              ))}
+            </div>
+          )}
         </Card>
 
         {/* Achievement badges */}
         <Card>
           <p className="mb-4 font-display text-sm font-semibold">Achievement Badges</p>
-          <div className="grid grid-cols-3 gap-3">
-            {badges.map((b) => {
-              const Icon = badgeIconMap[b.icon] || Award
-              return (
-                <div
-                  key={b.id}
-                  title={b.desc}
-                  className={`flex flex-col items-center gap-1.5 rounded-xl p-3 text-center ${
-                    b.earned
-                      ? 'bg-gradient-to-br from-leaf-500 to-sky-500 text-white shadow-lg'
-                      : 'bg-leaf-100 text-leaf-400 dark:bg-leaf-900 dark:text-leaf-700'
-                  }`}
-                >
-                  <Icon size={20} />
-                  <span className="text-[10px] font-medium leading-tight">{b.name}</span>
-                </div>
-              )
-            })}
-          </div>
+          {badges.length === 0 ? (
+            <EmptyState icon={Award} title="No badges yet" description="Earn badges by hitting recycling milestones." />
+          ) : (
+            <div className="grid grid-cols-3 gap-3">
+              {badges.map((b) => {
+                const Icon = badgeIconMap[b.icon] || Award
+                return (
+                  <div
+                    key={b.id}
+                    title={b.desc}
+                    className={`flex flex-col items-center gap-1.5 rounded-xl p-3 text-center ${
+                      b.earned
+                        ? 'bg-gradient-to-br from-leaf-500 to-sky-500 text-white shadow-lg'
+                        : 'bg-leaf-100 text-leaf-400 dark:bg-leaf-900 dark:text-leaf-700'
+                    }`}
+                  >
+                    <Icon size={20} />
+                    <span className="text-[10px] font-medium leading-tight">{b.name}</span>
+                  </div>
+                )
+              })}
+            </div>
+          )}
         </Card>
       </div>
     </div>

@@ -214,23 +214,25 @@ export default function Landing() {
             Loved by early communities
           </h2>
         </Reveal>
-        <div className="mt-14 grid grid-cols-1 gap-6 md:grid-cols-3">
-          {testimonials.map((t, i) => (
-            <Reveal key={t.id} delay={i * 100}>
-              <Card className="flex h-full flex-col">
-                <Quote className="mb-3 text-leaf-400" size={24} />
-                <p className="flex-1 text-sm text-leaf-800/80 dark:text-leaf-100/80">{t.quote}</p>
-                <div className="mt-5 flex items-center gap-3">
-                  <img src={t.avatar} alt={t.name} className="h-10 w-10 rounded-full" />
-                  <div>
-                    <p className="text-sm font-semibold">{t.name}</p>
-                    <p className="text-xs text-leaf-700/60 dark:text-leaf-200/50">{t.role}</p>
+        {testimonials.length > 0 && (
+          <div className="mt-14 grid grid-cols-1 gap-6 md:grid-cols-3">
+            {testimonials.map((t, i) => (
+              <Reveal key={t.id} delay={i * 100}>
+                <Card className="flex h-full flex-col">
+                  <Quote className="mb-3 text-leaf-400" size={24} />
+                  <p className="flex-1 text-sm text-leaf-800/80 dark:text-leaf-100/80">{t.quote}</p>
+                  <div className="mt-5 flex items-center gap-3">
+                    <img src={t.avatar} alt={t.name} className="h-10 w-10 rounded-full" />
+                    <div>
+                      <p className="text-sm font-semibold">{t.name}</p>
+                      <p className="text-xs text-leaf-700/60 dark:text-leaf-200/50">{t.role}</p>
+                    </div>
                   </div>
-                </div>
-              </Card>
-            </Reveal>
-          ))}
-        </div>
+                </Card>
+              </Reveal>
+            ))}
+          </div>
+        )}
       </section>
 
       {/* FAQ */}
@@ -241,32 +243,34 @@ export default function Landing() {
             Questions, answered
           </h2>
         </Reveal>
-        <div className="mx-auto mt-10 max-w-2xl space-y-3">
-          {faqs.map((f, i) => (
-            <Reveal key={f.q} delay={i * 60}>
-              <div className="glass overflow-hidden rounded-2xl">
-                <button
-                  className="flex w-full items-center justify-between px-5 py-4 text-left font-medium"
-                  onClick={() => setOpenFaq(openFaq === i ? -1 : i)}
-                >
-                  {f.q}
-                  <ChevronDown
-                    size={18}
-                    className={`shrink-0 text-leaf-500 transition-transform duration-300 ${openFaq === i ? 'rotate-180' : ''}`}
-                  />
-                </button>
-                <div
-                  className="grid transition-all duration-300"
-                  style={{ gridTemplateRows: openFaq === i ? '1fr' : '0fr' }}
-                >
-                  <div className="overflow-hidden">
-                    <p className="px-5 pb-4 text-sm text-leaf-700/70 dark:text-leaf-200/60">{f.a}</p>
+        {faqs.length > 0 && (
+          <div className="mx-auto mt-10 max-w-2xl space-y-3">
+            {faqs.map((f, i) => (
+              <Reveal key={f.q} delay={i * 60}>
+                <div className="glass overflow-hidden rounded-2xl">
+                  <button
+                    className="flex w-full items-center justify-between px-5 py-4 text-left font-medium"
+                    onClick={() => setOpenFaq(openFaq === i ? -1 : i)}
+                  >
+                    {f.q}
+                    <ChevronDown
+                      size={18}
+                      className={`shrink-0 text-leaf-500 transition-transform duration-300 ${openFaq === i ? 'rotate-180' : ''}`}
+                    />
+                  </button>
+                  <div
+                    className="grid transition-all duration-300"
+                    style={{ gridTemplateRows: openFaq === i ? '1fr' : '0fr' }}
+                  >
+                    <div className="overflow-hidden">
+                      <p className="px-5 pb-4 text-sm text-leaf-700/70 dark:text-leaf-200/60">{f.a}</p>
+                    </div>
                   </div>
                 </div>
-              </div>
-            </Reveal>
-          ))}
-        </div>
+              </Reveal>
+            ))}
+          </div>
+        )}
       </section>
 
       {/* CTA */}
