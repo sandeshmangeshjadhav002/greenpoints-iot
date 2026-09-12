@@ -110,8 +110,7 @@ def session_response(result: Any) -> dict[str, Any]:
 @app.post("/api/auth/signup", tags=["auth"])
 def sign_up(credentials: AuthCredentials) -> dict[str, Any]:
     try:
-        auth_client = create_client(settings.supabase_url, settings.supabase_key)
-        return session_response(auth_client.auth.sign_up({"email": credentials.email, "password": credentials.password}))
+        return session_response(supabase.auth.sign_up({"email": credentials.email, "password": credentials.password}))
     except Exception as error:
         raise HTTPException(status_code=400, detail=str(error)) from error
 
@@ -119,8 +118,7 @@ def sign_up(credentials: AuthCredentials) -> dict[str, Any]:
 @app.post("/api/auth/login", tags=["auth"])
 def sign_in(credentials: AuthCredentials) -> dict[str, Any]:
     try:
-        auth_client = create_client(settings.supabase_url, settings.supabase_key)
-        return session_response(auth_client.auth.sign_in_with_password({"email": credentials.email, "password": credentials.password}))
+        return session_response(supabase.auth.sign_in_with_password({"email": credentials.email, "password": credentials.password}))
     except Exception as error:
         raise HTTPException(status_code=401, detail="Invalid email or password") from error
 

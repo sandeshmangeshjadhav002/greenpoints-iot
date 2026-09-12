@@ -33,6 +33,7 @@ export default function useLiveBins() {
           : [...current, message.bin]
       })
     }
+    socket.onerror = () => console.error('WebSocket connection to EcoLoop API failed')
     return () => { active = false; socket.close() }
   }, [])
 
