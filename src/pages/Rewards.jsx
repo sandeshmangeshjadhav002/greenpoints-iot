@@ -13,6 +13,7 @@ export default function Rewards() {
   const [rewards, setRewards]   = useState([])
   const [balance, setBalance]   = useState(0)
   const [loading, setLoading]   = useState(true)
+  const [fetchError, setFetchError] = useState('')
   const [selected, setSelected] = useState(null)
   const [redeemed, setRedeemed] = useState(false)
   const [redeeming, setRedeeming] = useState(false)
@@ -22,12 +23,14 @@ export default function Rewards() {
     let active = true
     Promise.all([
       apiFetch('/api/dashboard/rewards').then((r) => r.data),
-      apiFetch('/api/users/me/points').then((r) => r.data.balance),
+      apiFetch('/api/users/me/points').then((r) => r.data.balance).catch(() => 0),
     ]).then(([rws, bal]) => {
       if (!active) return
       setRewards(rws)
       setBalance(bal)
-    }).catch(console.error)
+    }).catch((err) => {
+      if (active) setFetchError(err.message)
+    })
       .finally(() => { if (active) setLoading(false) })
     return () => { active = false }
   }, []) // eslint-disable-line react-hooks/exhaustive-deps
@@ -73,6 +76,8 @@ export default function Rewards() {
 
       {loading ? (
         <EmptyState icon={Gift} title="Loading rewards…" description="Fetching the reward catalog." />
+      ) : fetchError ? (
+        <EmptyState icon={Gift} title="Could not load rewards" description={fetchError} />
       ) : rewards.length === 0 ? (
         <EmptyState icon={Gift} title="No rewards available" description="Available rewards will appear here when the catalog is connected." />
       ) : (

@@ -17,7 +17,7 @@ function Toggle({ initial }) {
     <button
       onClick={() => setOn((o) => !o)}
       className={classNames(
-        'relative h-6 w-11 rounded-full transition-colors duration-300',
+        'relative shrink-0 h-6 w-11 rounded-full transition-colors duration-300',
         on ? 'bg-gradient-to-r from-leaf-500 to-sky-500' : 'bg-leaf-200 dark:bg-leaf-800',
       )}
       aria-pressed={on}
@@ -210,8 +210,8 @@ export default function Profile() {
               <p className="mb-4 font-display text-sm font-semibold">{group.title}</p>
               <div className="space-y-3">
                 {group.items.map((item) => (
-                  <div key={item.label} className="flex items-center justify-between">
-                    <span className="text-sm">{item.label}</span>
+                  <div key={item.label} className="flex items-center justify-between gap-3">
+                    <span className="min-w-0 flex-1 text-sm">{item.label}</span>
                     <Toggle initial={item.enabled} />
                   </div>
                 ))}

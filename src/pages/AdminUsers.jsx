@@ -47,11 +47,13 @@ export default function AdminUsers() {
       setUsers((prev) => prev.map((u) => u.id === userId ? { ...u, role: newRole } : u))
       setFeedback((f) => ({ ...f, [userId]: 'ok' }))
     } catch (err) {
+      // Revert dropdown to previous role on failure
+      setUsers((prev) => [...prev])
       setFeedback((f) => ({ ...f, [userId]: err.message }))
+      console.error('set-role failed:', err.message)
     } finally {
       setSaving((s) => ({ ...s, [userId]: false }))
-      // clear feedback after 3s
-      setTimeout(() => setFeedback((f) => ({ ...f, [userId]: null })), 3000)
+      setTimeout(() => setFeedback((f) => ({ ...f, [userId]: null })), 4000)
     }
   }
 
@@ -143,7 +145,7 @@ export default function AdminUsers() {
                   />
                 )}
 
-                {/* Feedback icon */}
+                {/* Feedback */}
                 {saving[u.id] && (
                   <RefreshCw size={16} className="animate-spin text-leaf-500" />
                 )}
@@ -151,7 +153,9 @@ export default function AdminUsers() {
                   <CheckCircle2 size={16} className="text-leaf-500" />
                 )}
                 {feedback[u.id] && feedback[u.id] !== 'ok' && (
-                  <AlertCircle size={16} className="text-red-500" title={feedback[u.id]} />
+                  <span className="flex items-center gap-1 text-xs text-red-500">
+                    <AlertCircle size={14} /> {feedback[u.id].includes('constraint') ? 'Run the SQL fix in Supabase — see notes below' : feedback[u.id]}
+                  </span>
                 )}
               </div>
             </Card>
@@ -162,6 +166,19 @@ export default function AdminUsers() {
       <p className="mt-6 text-xs text-leaf-700/40 dark:text-leaf-200/30 text-center">
         Role changes take effect on the user's next sign-in (new JWT is issued at login).
       </p>
+
+      {/* One-time setup note */}
+      <div className="mt-4 rounded-xl border border-amber-200 dark:border-amber-800 bg-amber-50 dark:bg-amber-900/20 px-4 py-3 text-xs text-amber-700 dark:text-amber-300">
+        <p className="font-semibold mb-1">⚠ If role changes fail with a constraint error:</p>
+        <p>Run this once in the <strong>Supabase SQL Editor</strong>:</p>
+        <pre className="mt-2 overflow-x-auto rounded bg-amber-100 dark:bg-amber-900/40 p-2 text-[10px] leading-relaxed">{`ALTER TABLE public.user_roles
+  DROP CONSTRAINT IF EXISTS user_roles_role_check;
+ALTER TABLE public.user_roles
+  ADD CONSTRAINT user_roles_role_check
+  CHECK (role IN ('user','cleaner','shop','admin'));
+ALTER TABLE public.user_roles
+  ADD COLUMN IF NOT EXISTS shop_name text;`}</pre>
+      </div>
     </div>
   )
 }
