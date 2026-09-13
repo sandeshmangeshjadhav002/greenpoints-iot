@@ -355,3 +355,36 @@ def mark_all_read(current: TokenData = Depends(get_current_user)):
     admin = get_admin_client()
     admin.table("notifications").update({"read": True}).eq("user_id", current.sub).execute()
     return {"success": True, "data": {"updated": True}}
+
+
+@router.get("/redemptions")
+def my_redemptions(current: TokenData = Depends(get_current_user), limit: int = 50):
+    """User's own redemption history with current status."""
+    admin = get_admin_client()
+    r = (admin.table("redemptions")
+         .select("*, rewards(name, description, category, image_url)")
+         .eq("user_id", current.sub)
+         .order("created_at", desc=True)
+         .limit(limit)
+         .execute())
+    out = []
+    for row in r.data:
+        reward = row.get("rewards") or {}
+        def _ts(ts):
+            if not ts: return None
+            try:
+                return datetime.fromisoformat(str(ts).replace("Z", "+00:00")).astimezone().strftime("%d %b %Y, %I:%M %p")
+            except Exception:
+                return str(ts)
+        out.append({
+            "id":           str(row["id"]),
+            "reward_name":  reward.get("name") or "Reward",
+            "reward_image": reward.get("image_url"),
+            "category":     reward.get("category"),
+            "token_cost":   int(row.get("token_cost") or 0),
+            "status":       row.get("status") or "pending",
+            "created_at":   _ts(row.get("created_at")),
+            "fulfilled_at": _ts(row.get("fulfilled_at")),
+            "notes":        row.get("notes"),
+        })
+    return {"success": True, "data": out}
