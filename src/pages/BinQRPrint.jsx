@@ -26,7 +26,7 @@ export default function BinQRPrint() {
   const [bins, setBins]     = useState([])
   const [loading, setLoading] = useState(true)
 
-  const origin = window.location.origin   // e.g. http://localhost:5173
+    const origin = window.location.origin   // auto-uses vercel domain in production
 
   useEffect(() => {
     apiFetch('/api/bins/all-qr')
