@@ -209,11 +209,19 @@ def set_user_role(payload: dict, _: TokenData = Depends(require_admin)):
         raise HTTPException(status_code=400, detail="role must be user | cleaner | shop | admin")
 
     admin = get_admin_client()
-    # Upsert into user_roles
-    admin.table("user_roles").upsert({
-        "user_id": user_id,
-        "role": role,
-        "shop_name": shop_name,
-    }, on_conflict="user_id").execute()
+    # Build upsert payload — only include shop_name if it was provided
+    upsert_payload: dict = {"user_id": user_id, "role": role}
+    if shop_name is not None:
+        upsert_payload["shop_name"] = shop_name
+    try:
+        admin.table("user_roles").upsert(upsert_payload, on_conflict="user_id").execute()
+    except Exception as e:
+        # shop_name column may not exist yet (migration 004 pending) — retry without it
+        if "shop_name" in str(e):
+            admin.table("user_roles").upsert(
+                {"user_id": user_id, "role": role}, on_conflict="user_id"
+            ).execute()
+        else:
+            raise HTTPException(status_code=500, detail=str(e))
 
     return {"success": True, "data": {"user_id": user_id, "role": role}}
