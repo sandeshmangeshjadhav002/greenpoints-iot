@@ -106,7 +106,7 @@ export default function AdminUsers() {
               <div className="min-w-0 flex-1">
                 <p className="font-medium truncate">{u.email}</p>
                 <p className="text-xs text-leaf-700/60 dark:text-leaf-200/50 truncate">
-                  {u.display_name || 'No display name'} · {u.token_balance} tokens
+                  {u.display_name || u.email?.split('@')[0] || 'No name'} · {u.token_balance} tokens
                   <span className="ml-2 font-mono text-[10px] opacity-50">{u.id.slice(0, 8)}…</span>
                 </p>
               </div>
