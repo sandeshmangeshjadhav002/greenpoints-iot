@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useRef } from 'react'
 import { Trash2, AlertTriangle, CheckCircle2, Radio, RefreshCw, MapPin, BatteryMedium } from 'lucide-react'
 import Card from '../components/Card'
 import StatCard from '../components/StatCard'
@@ -9,17 +9,20 @@ import { ProgressBar } from '../components/ProgressBar'
 import { useAuth } from '../context/AuthContext'
 import { healthColor, classNames } from '../utils/helpers'
 
+const POLL_MS = 10000  // auto-refresh every 10 s
+
 export default function CleanerDashboard() {
   const { apiFetch } = useAuth()
 
-  const [stats, setStats]         = useState(null)
-  const [fullBins, setFullBins]   = useState([])
-  const [loading, setLoading]     = useState(true)
-  const [collecting, setCollecting] = useState(null)   // bin code being marked collected
-  const [message, setMessage]     = useState('')
+  const [stats, setStats]           = useState(null)
+  const [fullBins, setFullBins]     = useState([])
+  const [loading, setLoading]       = useState(true)
+  const [collecting, setCollecting] = useState(null)
+  const [message, setMessage]       = useState('')
+  const pollRef                     = useRef(null)
 
-  const load = useCallback(async () => {
-    setLoading(true)
+  const load = useCallback(async (showSpinner = false) => {
+    if (showSpinner) setLoading(true)
     try {
       const [statsRes, binsRes] = await Promise.all([
         apiFetch('/api/cleaner/stats'),
@@ -34,7 +37,12 @@ export default function CleanerDashboard() {
     }
   }, [apiFetch])
 
-  useEffect(() => { load() }, [load])
+  useEffect(() => {
+    load(true)
+    // Auto-refresh so NodeMCU direct writes appear without manual reload
+    pollRef.current = setInterval(() => load(false), POLL_MS)
+    return () => clearInterval(pollRef.current)
+  }, [load])
 
   async function markCollected(code) {
     setCollecting(code)
@@ -63,7 +71,7 @@ export default function CleanerDashboard() {
           </p>
         </div>
         <button
-          onClick={load}
+          onClick={() => load(true)}
           disabled={loading}
           className="flex items-center gap-2 rounded-xl border border-leaf-200 dark:border-leaf-800 px-4 py-2 text-sm hover:bg-leaf-50 dark:hover:bg-leaf-900 disabled:opacity-50"
         >

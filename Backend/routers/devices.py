@@ -115,6 +115,21 @@ async def ingest_ultrasonic_sensor(
     }
 
 
+@router.post("/{code}/open-lid")
+async def open_lid(code: str):
+    """
+    Sets pending_command='open_lid' on the bin row.
+    The NodeMCU polls this column every 3 s and opens the servo when it sees it.
+    Also broadcasts over WebSocket for any connected dashboards.
+    """
+    bin_row = bin_from_device_id(code)
+    admin = get_admin_client()
+    admin.table("smart_bins").update({"pending_command": "open_lid"}).eq("id", bin_row["id"]).execute()
+    from main import manager
+    await manager.broadcast({"type": "open_lid", "bin_id": bin_row["code"]})
+    return {"success": True, "data": {"bin_code": code, "command": "open_lid"}}
+
+
 @router.post("/{code}/telemetry")
 async def ingest_legacy_telemetry(
     code: str,

@@ -7,11 +7,11 @@
  * • Posts to POST /api/waste/scan-qr → awards tokens and shows result.
  */
 import { useState, useEffect, useRef, useCallback } from 'react'
-import { useSearchParams, useNavigate } from 'react-router-dom'
+import { useSearchParams } from 'react-router-dom'
 import jsQR from 'jsqr'
 import {
   QrCode, ScanLine, CheckCircle2, AlertCircle,
-  Coins, Recycle, ChevronDown, Camera, X,
+  Coins, Recycle, ChevronDown, Camera, X, Unlock,
 } from 'lucide-react'
 import Card from '../components/Card'
 import Breadcrumb from '../components/Breadcrumb'
@@ -35,10 +35,8 @@ function extractToken(raw) {
 
 export default function ScanQR() {
   const [searchParams]    = useSearchParams()
-  const navigate          = useNavigate()
   const { apiFetch }      = useAuth()
 
-  // Pre-fill from URL ?bin=<token>  (user opens page by scanning a printed QR)
   const urlToken = searchParams.get('bin') || ''
 
   const [qrToken,    setQrToken]    = useState(urlToken)
@@ -47,6 +45,11 @@ export default function ScanQR() {
   const [submitting, setSubmitting] = useState(false)
   const [result,     setResult]     = useState(null)
   const [error,      setError]      = useState('')
+
+  // Lid open state
+  const [binCode,    setBinCode]    = useState('')   // resolved once token is known
+  const [lidOpening, setLidOpening] = useState(false)
+  const [lidMsg,     setLidMsg]     = useState('')
 
   // Camera state
   const [cameraOpen,  setCameraOpen]  = useState(false)
@@ -59,7 +62,33 @@ export default function ScanQR() {
   const streamRef  = useRef(null)
   const rafRef     = useRef(null)
 
-  // ── camera lifecycle ──────────────────────────────────────────────────────
+  // When qrToken is set, resolve the bin code so we can call open-lid
+  useEffect(() => {
+    if (!qrToken) { setBinCode(''); return }
+    apiFetch(`/api/bins/all-qr`)
+      .then((r) => {
+        const match = r.data.find((b) => b.qrToken === qrToken)
+        if (match) setBinCode(match.code)
+      })
+      .catch(() => {})
+  }, [qrToken]) // eslint-disable-line
+
+  async function openLid() {
+    if (!binCode) return
+    setLidOpening(true)
+    setLidMsg('')
+    try {
+      // Write pending_command directly to Supabase — NodeMCU polls and picks it up
+      const apiBase = import.meta.env.VITE_API_URL || 'http://localhost:8000'
+      await apiFetch(`/api/devices/${binCode}/open-lid`, { method: 'POST' })
+      setLidMsg('✓ Lid opening… Please deposit your waste.')
+    } catch (err) {
+      setLidMsg(`Could not open lid: ${err.message}`)
+    } finally {
+      setLidOpening(false)
+      setTimeout(() => setLidMsg(''), 5000)
+    }
+  }
   const stopCamera = useCallback(() => {
     cancelAnimationFrame(rafRef.current)
     streamRef.current?.getTracks().forEach((t) => t.stop())
@@ -79,15 +108,19 @@ export default function ScanQR() {
         video: { facingMode: { ideal: 'environment' }, width: { ideal: 1280 }, height: { ideal: 720 } },
       })
       streamRef.current = stream
-      if (videoRef.current) {
-        videoRef.current.srcObject = stream
-        await videoRef.current.play()
-      }
       setCameraOpen(true)
-      setScanning(true)
+      // scanning starts via onLoadedMetadata on the video element
     } catch (e) {
       setCameraError('Camera access denied. Enter the bin token manually below.')
     }
+  }
+
+  // Called when video element is mounted and stream is ready
+  function onVideoRef(el) {
+    if (!el || !streamRef.current) return
+    videoRef.current = el
+    el.srcObject = streamRef.current
+    el.play().then(() => setScanning(true)).catch(() => {})
   }
 
   // ── jsQR scan loop ────────────────────────────────────────────────────────
@@ -205,7 +238,7 @@ export default function ScanQR() {
         <Card className="mb-5 overflow-hidden p-0">
           <div className="relative bg-black">
             <video
-              ref={videoRef}
+              ref={onVideoRef}
               playsInline
               muted
               className="w-full max-h-72 object-cover"
@@ -293,6 +326,26 @@ export default function ScanQR() {
                 <CheckCircle2 size={12} />
                 {urlToken && !scanMsg ? 'Token pre-filled from QR link' : scanMsg || 'Token ready'}
               </p>
+            )}
+
+            {/* Open Bin button — appears once a valid token is scanned */}
+            {qrToken && (
+              <div className="mt-3">
+                <button
+                  type="button"
+                  onClick={openLid}
+                  disabled={lidOpening || !binCode}
+                  className="flex w-full items-center justify-center gap-2 rounded-xl border-2 border-leaf-500 py-2.5 text-sm font-semibold text-leaf-600 dark:text-mint-400 hover:bg-leaf-50 dark:hover:bg-leaf-900/60 disabled:opacity-50 transition-colors"
+                >
+                  <Unlock size={16} />
+                  {lidOpening ? 'Opening…' : 'Open Bin Lid'}
+                </button>
+                {lidMsg && (
+                  <p className={`mt-2 text-center text-xs ${lidMsg.startsWith('✓') ? 'text-leaf-600 dark:text-mint-400' : 'text-red-500'}`}>
+                    {lidMsg}
+                  </p>
+                )}
+              </div>
             )}
           </div>
 
