@@ -103,25 +103,28 @@ export default function ScanQR() {
   async function startCamera() {
     setCameraError('')
     setScanMsg('')
+    setScanning(false)
     try {
       const stream = await navigator.mediaDevices.getUserMedia({
-        video: { facingMode: { ideal: 'environment' }, width: { ideal: 1280 }, height: { ideal: 720 } },
+        video: { facingMode: { ideal: 'environment' }, width: { ideal: 640 }, height: { ideal: 480 } },
       })
       streamRef.current = stream
       setCameraOpen(true)
-      // scanning starts via onLoadedMetadata on the video element
     } catch (e) {
       setCameraError('Camera access denied. Enter the bin token manually below.')
     }
   }
 
-  // Called when video element is mounted and stream is ready
-  function onVideoRef(el) {
-    if (!el || !streamRef.current) return
-    videoRef.current = el
-    el.srcObject = streamRef.current
-    el.play().then(() => setScanning(true)).catch(() => {})
-  }
+  // Attach stream to video element once cameraOpen becomes true
+  useEffect(() => {
+    if (!cameraOpen || !streamRef.current) return
+    const video = videoRef.current
+    if (!video) return
+    video.srcObject = streamRef.current
+    video.play()
+      .then(() => setScanning(true))
+      .catch((err) => console.error('video play error:', err))
+  }, [cameraOpen])
 
   // ── jsQR scan loop ────────────────────────────────────────────────────────
   useEffect(() => {
@@ -238,9 +241,10 @@ export default function ScanQR() {
         <Card className="mb-5 overflow-hidden p-0">
           <div className="relative bg-black">
             <video
-              ref={onVideoRef}
+              ref={videoRef}
               playsInline
               muted
+              autoPlay
               className="w-full max-h-72 object-cover"
             />
             {/* Targeting overlay */}
