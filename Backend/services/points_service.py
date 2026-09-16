@@ -69,18 +69,29 @@ def get_leaderboard(limit: int = 50):
     r = (
         admin.table("profiles")
         .select("id, display_name, avatar_url, token_balance, total_waste_kg")
-        .gt("token_balance", 0)
+        .gte("token_balance", 0)
         .order("token_balance", desc=True)
         .limit(limit)
         .execute()
     )
+    try:
+        auth_users = admin.auth.admin.list_users()
+        email_map = {str(u.id): u.email for u in auth_users}
+    except Exception:
+        email_map = {}
+
     entries = []
     for idx, row in enumerate(r.data, start=1):
+        uid = str(row.get("id") or "")
+        raw_name = row.get("display_name") or ""
+        if not raw_name.strip():
+            email = email_map.get(uid, "")
+            raw_name = email.split("@")[0] if email else "User"
         entries.append({
-            "rank": idx,
-            "name": row.get("display_name") or "Anonymous",
-            "avatar": row.get("avatar_url"),
-            "points": int(row.get("token_balance") or 0),
+            "rank":    idx,
+            "name":    raw_name,
+            "avatar":  row.get("avatar_url"),
+            "points":  int(row.get("token_balance") or 0),
             "wasteKg": float(row.get("total_waste_kg") or 0),
         })
     return entries
