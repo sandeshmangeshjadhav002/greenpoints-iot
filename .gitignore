@@ -6,10 +6,8 @@ dist
 .env
 Backend/.env
 
-# Firmware — ignore all compiled output, local secrets, and source with baked-in creds
-Firmware/**/secrets.h
-Firmware/**/EcoLoopBin.ino
-Firmware/**/secrets.example.h
+# Firmware — entire folder is private/local (contains Wi-Fi + Supabase credentials)
+Firmware/
 
 __pycache__/
 *.py[cod]
