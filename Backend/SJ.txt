@@ -1,1 +1,0 @@
-Start-Process powershell -ArgumentList "-NoExit", "-Command", "npm run dev"; Start-Process powershell -ArgumentList "-NoExit", "-Command", "Set-Location './Backend'; C:/Python314/python.exe -m uvicorn main:app --reload --port 8000"
