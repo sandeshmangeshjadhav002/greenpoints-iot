@@ -8,5 +8,5 @@ Backend/.env
 Firmware/**/secrets.h
 __pycache__/
 *.py[cod]
-Firmware\EcoLoopBin\EcoLoopBin.ino
-Firmware\EcoLoopBin\secrets.example.h
+Firmware\**\EcoLoopBin.ino
+Firmware\**\secrets.example.h
